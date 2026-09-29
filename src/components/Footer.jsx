@@ -1,0 +1,5 @@
+import React, {useEffect, useMemo, useState} from 'react';
+import {Mail, Phone, MapPin} from 'lucide-react';
+import logo from '../assets/ni4e-logo.png';
+
+export default function Footer({setPage}){return <footer><div><img src={logo}/><p>The Nigerian Institution of Energy, Electrical & Electronics Engineers.</p><div className="socialRow"><span>LinkedIn</span><span>Facebook</span><span>Instagram</span></div></div><div><b>Explore</b>{[['About NI4E','about'],['Membership','membership'],['Leadership','leadership'],['Events','events']].map(x=><button key={x[1]} onClick={()=>setPage(x[1])}>{x[0]}</button>)}</div><div><b>Contact</b><span><Mail/> Official email to be supplied</span><span><Phone/> Official phone to be supplied</span><span><MapPin/> Official office details to be supplied</span></div><div><b>Member Portal</b><button onClick={()=>setPage('register')}>Become a Member</button><button onClick={()=>setPage('login')}>Member Login</button></div><small className="copy">© 2026 NI4E. All rights reserved.</small></footer>}
