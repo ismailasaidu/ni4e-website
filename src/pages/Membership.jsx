@@ -3,9 +3,12 @@ import {ArrowRight, Users, Award, Building2, ShieldCheck, CheckCircle2, Briefcas
 import logo from '../assets/ni4e-logo.png';
 import {PageHero} from '../components';
 import useReveal from '../hooks/useReveal';
+import { useAuth } from '../firebase/auth';
 
 export default function Membership({setPage}){
  useReveal();
+ const { user } = useAuth();
+ const startApplication = () => { if (!user) { try { sessionStorage.setItem('ni4e_after_login', 'register'); } catch {} setPage('login'); return; } setPage('register'); };
  const [active,setActive]=useState('Corporate Member');
  const [openFaq,setOpenFaq]=useState(0);
  const cats=[
@@ -38,7 +41,7 @@ export default function Membership({setPage}){
     <div className="previewTop"><span>MEMBERSHIP SERVICES</span><span className="activeTag">ONLINE</span></div>
     <div className="previewIcon"><ActiveIcon size={25}/></div>
     <span className="tag">{active}</span><h3>{activeCat[1]}</h3><p>{activeCat[3]}</p>
-    <button className="gold wide" onClick={()=>setPage('register')}>Start Membership Application <ArrowRight size={16}/></button>
+    <button className="gold wide" onClick={startApplication}>Start Membership Application <ArrowRight size={16}/></button>
    </div>
   </section>
 
@@ -63,7 +66,7 @@ export default function Membership({setPage}){
       <div><b>Professional</b><span>Employer, role and specialization</span></div>
       <div><b>NSE Profile</b><span>Membership and professional details</span></div>
     </div>
-    <button className="darkbtn" onClick={()=>setPage('register')}>Apply for {active} <ArrowRight size={16}/></button>
+    <button className="darkbtn" onClick={startApplication}>Apply for {active} <ArrowRight size={16}/></button>
    </div>
    <div className="benefitsPanel"><span className="kicker">MEMBER SERVICES</span><h3>One connected membership experience.</h3>{benefits.map(x=><span key={x}><CheckCircle2 size={16}/>{x}</span>)}</div>
   </section>
@@ -79,6 +82,6 @@ export default function Membership({setPage}){
   <section className="section reveal credentialSection"><div className="credentialIntro"><span className="kicker">DIGITAL MEMBERSHIP CREDENTIAL</span><h2>Membership documentation, ready for the member portal.</h2><p>The production platform will give approved members access to their membership documentation and certificate area. The official certificate artwork and wording should be supplied or approved by NI4E before publication.</p></div><div className="credentialPreview"><div className="credentialRibbon">NI4E</div><div className="credentialSeal"><img src={logo}/></div><span className="kicker">MEMBERSHIP CERTIFICATE</span><h3>Certificate of Membership</h3><p>This preview shows the intended digital certificate experience. Official certificate design, signatories, membership number and validity details will be populated from approved member records.</p><div className="credentialLines"><span>Member Name</span><b>Approved Member</b><span>Membership Category</span><b>Corporate / Graduate / Associate / Student / Life</b></div><div className="credentialFooter"><span>NI4E</span><span>Digital Member Record</span></div></div></section>
 
   <section className="section reveal"><div className="sectionHead"><div><span className="kicker">COMMON QUESTIONS</span><h2>Membership, made clearer.</h2></div></div><div className="faqList">{faqs.map(([q,a],i)=><div className={`faq ${openFaq===i?'open':''}`} key={q}><button onClick={()=>setOpenFaq(openFaq===i?-1:i)}><span>{q}</span><span className="faqPlus">+</span></button>{openFaq===i&&<p>{a}</p>}</div>)}</div></section>
-  <section className="membershipCTA reveal"><div><span className="kicker">READY TO APPLY?</span><h2>Start your NI4E membership application.</h2><p>Complete the structured membership form to submit your details for review.</p></div><button className="gold" onClick={()=>setPage('register')}>Begin Application <ArrowRight size={17}/></button></section>
+  <section className="membershipCTA reveal"><div><span className="kicker">READY TO APPLY?</span><h2>Start your NI4E membership application.</h2><p>Complete the structured membership form to submit your details for review.</p></div><button className="gold" onClick={startApplication}>Begin Application <ArrowRight size={17}/></button></section>
  </>;
 }

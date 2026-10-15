@@ -11,3 +11,5 @@ export {default as Footer} from './Footer.jsx';
 export {default as Field} from './Field.jsx';
 export {default as SelectField} from './SelectField.jsx';
 export {default as FileUpload} from './FileUpload.jsx';
+
+export { default as SpotlightCarousel } from './SpotlightCarousel';

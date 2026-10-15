@@ -1,6 +1,6 @@
 import {FileText,CalendarDays,BookOpen,Network} from 'lucide-react';
 
-const nav=[['About','about'],['Membership','membership'],['Leadership','leadership'],['Events','events'],['Publications','publications'],['Chapters','chapters'],['News','news'],['Contact','contact']]
+const nav=[['About','about'],['Membership','membership'],['Leadership','leadership'],['Events','events'],['Publications','publications'],['Chapters','chapters'],['News','news'],['Projects','projects'],['Technical Divisions','technicalDivisions'],['Committees','committees'],['Contact','contact']]
 
 const presidents=[['Engr. A. O. Adeyemi','1958 – 1962'],['Engr. B. T. Okafor','1962 – 1966'],['Engr. C. M. Eze','1966 – 1970'],['Engr. S. A. Bello','1970 – 1974'],['Engr. R. K. Danjuma','1974 – 1978'],['Engr. P. O. Iweala','1978 – 1982']]
 

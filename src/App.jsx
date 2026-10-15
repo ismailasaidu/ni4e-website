@@ -9,13 +9,16 @@ import Events from './pages/Events';
 import Publications from './pages/Publications';
 import Chapters from './pages/Chapters';
 import News from './pages/News';
+import ContentDirectory from './pages/ContentDirectory';
 import Contact from './pages/Contact';
 import Fellowship from './pages/Fellowship';
 import Login from './member/Login';
 import Register from './member/Register';
 import Dashboard from './member/Dashboard';
 import Admin from './admin/Admin';
+import Payments from './member/Payments';
 import './styles.css';
+import ProtectedRoute from './firebase/ProtectedRoute';
 
 const ROUTES = {
   home: '/',
@@ -27,10 +30,14 @@ const ROUTES = {
   publications: '/publications',
   chapters: '/chapters',
   news: '/news',
+  projects: '/projects',
+  technicalDivisions: '/technical-divisions',
+  committees: '/committees',
   contact: '/contact',
   register: '/membership/register',
   fellowship: '/membership/fellowship',
   login: '/login',
+  payment: '/membership/payment',
   dashboard: '/member/dashboard',
   admin: '/admin'
 };
@@ -82,7 +89,7 @@ export default function App() {
       setPage(nextPage);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'auto' });
-    }, 220);
+    }, 520);
   };
 
   useEffect(() => {
@@ -104,12 +111,16 @@ export default function App() {
     case 'publications': content = <Publications setPage={navigate} />; break;
     case 'chapters': content = <Chapters setPage={navigate} />; break;
     case 'news': content = <News setPage={navigate} />; break;
+    case 'projects': content = <ContentDirectory contentType="project" setPage={navigate} />; break;
+    case 'technicalDivisions': content = <ContentDirectory contentType="technical_division" setPage={navigate} />; break;
+    case 'committees': content = <ContentDirectory contentType="committee" setPage={navigate} />; break;
     case 'contact': content = <Contact setPage={navigate} />; break;
-    case 'register': content = <Register setPage={navigate} notify={notify} />; break;
+    case 'register': content = <ProtectedRoute setPage={navigate}><Register setPage={navigate} notify={notify} /></ProtectedRoute>; break;
     case 'fellowship': content = <Fellowship setPage={navigate} notify={notify} />; break;
     case 'login': content = <Login setPage={navigate} notify={notify} />; break;
-    case 'dashboard': content = <Dashboard setPage={navigate} />; break;
-    case 'admin': content = <Admin setPage={navigate} />; break;
+    case 'payment': content = <Payments setPage={navigate} />; break;
+    case 'dashboard': content = <ProtectedRoute setPage={navigate} publicGate><Dashboard setPage={navigate} /></ProtectedRoute>; break;
+    case 'admin': content = <ProtectedRoute setPage={navigate} requiredRole="admin"><Admin setPage={navigate} /></ProtectedRoute>; break;
     default: content = <Home setPage={navigate} />;
   }
 
@@ -121,7 +132,7 @@ export default function App() {
       <ScrollTop />
       <Header setPage={navigate} onSearch={() => setSearch(true)} />
       {loading && <PageLoader />}
-      <main className={`siteMain ${isPortal ? 'portalMain' : ''}`}>{content}</main>
+      <main key={page} className={`siteMain pageTransition ${isPortal ? 'portalMain' : ''}`}>{content}</main>
       {!isPortal && <Footer setPage={navigate} />}
       <Toast toast={toast} />
       {search && <SearchOverlay close={() => setSearch(false)} setPage={navigate} />}

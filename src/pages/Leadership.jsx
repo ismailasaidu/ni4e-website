@@ -1,7 +1,23 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import {ArrowRight} from 'lucide-react';
-import logo from '../assets/ni4e-logo.png';
-import {PageHero} from '../components';
+import React from 'react';
+import { ArrowRight, ExternalLink, Users, ShieldCheck } from 'lucide-react';
+import { PageHero } from '../components';
 import useReveal from '../hooks/useReveal';
 
-export default function Leadership({setPage}){useReveal();return <><PageHero title="Leadership" crumb="Leadership" desc="Meet the people guiding the institution's professional agenda."/><section className="section reveal"><div className="sectionHead"><div><span className="kicker">NATIONAL EXECUTIVE</span><h2>Serving the profession with purpose.</h2></div><button className="textbtn" onClick={()=>setPage('presidents')}>Past Presidents <ArrowRight size={16}/></button></div><div className="leaders"><div className="leader featured"><div className="portrait">NP</div><div><span className="tag">PRESIDENT</span><h3>National President</h3><p>National Executive Council</p><div className="bio">Official office-holder details and biographies can be managed securely from the administration portal.</div></div></div><div className="leader"><div className="portrait">VP</div><div><span className="tag">VICE PRESIDENT</span><h3>Vice President</h3><p>National Executive Council</p></div></div></div></section><section className="section reveal"><div className="sectionHead"><div><span className="kicker">COUNCIL</span><h2>Leadership directory</h2></div></div><div className="leaderMiniGrid">{['General Secretary','Treasurer','Publicity Secretary','Technical Director'].map((x,i)=><div key={x}><div className="miniPortrait">{['GS','TR','PS','TD'][i]}</div><b>{x}</b><span>National Executive Council</span></div>)}</div></section></>}
+const parentExecutives = [
+ ['Engr. Ali Alimasuya Rabiu, FNSE, F.ASCE, FAEng, MFR','President'],
+ ['Engr. Valerie Ifueko Agberagba, FNSE','Deputy President'],
+ ['Engr. (Dr.) Halimat S. C. Adediran, FNSE','Vice-President — Engineering Technology & Innovation Management'],
+ ['Engr. Ben Osy Okoh, FNSE, F.ASCE','Vice-President — Corporate Services'],
+ ['Engr. Aluyah Dauda Okodugha, PhD, FNSE','Vice-President — Professional Development'],
+ ['Engr. Rachel Serumun Ugye, FNSE','Vice-President — Assets Management'],
+ ['Engr. Usman Tijjani, FNSE, mni','Vice-President — Membership Services'],
+ ['Engr. Usman Abdu Abubakar, FNSE','EXCO Member — Engineering Technology & Innovation Management'],
+ ['Engr. Ayotunde Olukayode Ogunnioki, FNSE, FNICE, FNIHTE','EXCO Member — Assets Management'],
+ ['Engr. Evukowhiroro Ojegba, PhD, FNSE','EXCO Member — Membership Services'],
+ ['Engr. Tijjani Dayyabu, FNSE','EXCO Member — Professional Development'],
+ ['Engr. Dauda Musa, FNSE','EXCO Member — Corporate Services'],
+ ['Engr. Nze Mathew Chuks Madu, FNSE, MNIEE, MNIEEE, MNIIndE, NIFEngM','EXCO Member — Collaboration and Linkages'],
+ ['Engr. Margaret Aina Oguntala, FNSE','Immediate Past President'],
+ ['Engr. Ibrahim Aliyu Dustinma, FNSE','Executive Secretary']
+];
+export default function Leadership({setPage}){useReveal();return <><PageHero title="Leadership" crumb="Leadership" desc="Explore the executive directory and institutional leadership information."/><section className="section reveal"><div className="sectionHead"><div><span className="kicker">EXECUTIVE DIRECTORY</span><h2>Executive Leadership</h2></div><a className="textbtn" href="https://nse.org.ng/2026-exco-members/" target="_blank" rel="noreferrer">View official source <ExternalLink size={16}/></a></div><div className="leaderMiniGrid parentLeadershipGrid">{parentExecutives.map(([name,role],i)=><article key={name} className="parentLeaderCard"><div className="miniPortrait">{name.replace(/^Engr\.? /,'').split(/\s+/).slice(0,2).map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div><b>{name}</b><span>{role}</span>{i===0&&<em>President</em>}</article>)}</div></section></>}
