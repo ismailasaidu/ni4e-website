@@ -11,7 +11,7 @@ export default function Header({ setPage, onSearch }) {
   const accountRef = useRef(null);
   const { user, profile, loading: authLoading, logout } = useAuth();
   const isAdmin = profile?.role === 'admin';
-  const isActiveMember = profile?.membershipStatus === 'active';
+  const isActiveMember = profile?.membershipStatus === 'active' && (!profile?.membership_expires_at || new Date(profile.membership_expires_at).getTime() > Date.now());
   const accountLabel = isAdmin ? 'Administrator' : isActiveMember ? 'Active member' : 'Applicant account';
   const [mobileGroup, setMobileGroup] = useState('');
 
@@ -62,10 +62,19 @@ export default function Header({ setPage, onSearch }) {
         <>
           <div className="accountDropdownIdentity">
             <span className="accountAvatar"><UserRound size={17} /></span>
-            <span><b>{profile?.fullName || user.email || 'NI4E account'}</b><small>{accountLabel}</small></span>
+            <span className="accountDropdownIdentityDetails">
+              <b>{profile?.fullName || user.email || 'NI4E account'}</b>
+              <small>{user.email || 'Email unavailable'}</small>
+              <small>Member No.: {profile?.membership_number || profile?.membershipNumber || profile?.member_number || 'Awaiting assignment'}</small>
+              <small>{accountLabel}</small>
+            </span>
           </div>
-          {!isAdmin && <button className="accountDropdownItem" onClick={() => go('dashboard')}><ClipboardList size={17} /><span>Membership application</span></button>}
-          {!isAdmin && isActiveMember && <button className="accountDropdownItem" onClick={() => go('dashboard')}><LayoutDashboard size={17} /><span>Member portal</span></button>}
+          {!isAdmin && <button className="accountDropdownItem" onClick={() => go('membershipStatus')}><ClipboardList size={17} /><span>Application status</span></button>}
+          <button className="accountDropdownItem ni4ePremiumPortalButton" onClick={() => go('dashboard')}><LayoutDashboard size={17} /><span>Member Portal</span></button>
+          {user && !isAdmin && <>
+            <button className="accountDropdownItem" onClick={() => go('memberProfile')}><UserRound size={17} /><span>My profile</span></button>
+            <button className="accountDropdownItem" onClick={() => go('memberPayments')}><CreditCard size={17} /><span>Payment history</span></button>
+          </>}
           {isAdmin && <button className="accountDropdownItem" onClick={() => go('admin')}><ShieldCheck size={17} /><span>Admin panel</span></button>}
           {!isAdmin && <button className="accountDropdownItem" onClick={() => go('payment')}><CreditCard size={17} /><span>Membership payment</span></button>}
           <div className="accountDropdownDivider" />
@@ -83,7 +92,7 @@ export default function Header({ setPage, onSearch }) {
   );
 
   const mobileGroups = [
-    { title: 'Institution', items: nav.slice(0, 3) },
+    { title: 'Institution', items: nav.slice(0, 2) },
     { title: 'Resources & activities', items: nav.slice(3, 10) },
     { title: 'Contact', items: nav.slice(10) }
   ];
@@ -96,8 +105,8 @@ export default function Header({ setPage, onSearch }) {
           <span><b>NI4E</b><small>The Nigerian Institution of Energy,<br />Electrical & Electronics Engineers<br /><em>A Division of the Nigerian Society of Engineers (NSE)</em></small></span>
         </button>
         <nav className={open ? 'open' : ''} aria-label="Main navigation">
-          <div className="desktopNavItems">{nav.map(([label, page]) => <button key={page} onClick={() => go(page)}>{label}</button>)}</div>
-          <div className="mobileNavGroups">{mobileGroups.map(group => <section className="mobileNavGroup" key={group.title}><button type="button" className="mobileNavGroupToggle" aria-expanded={mobileGroup === group.title} onClick={() => setMobileGroup(current => current === group.title ? '' : group.title)}><span>{group.title}</span><ChevronDown size={16} className={mobileGroup === group.title ? 'accountChevron open' : 'accountChevron'} /></button>{mobileGroup === group.title && <div className="mobileNavGroupItems">{group.items.map(([label, page]) => <button key={page} onClick={() => go(page)}>{label}</button>)}</div>}</section>)}</div>
+          <div className="desktopNavItems">{nav.filter(([, page]) => !['dashboard', 'memberPortal'].includes(page)).map(([label, page]) => <button key={page} onClick={() => go(page)}>{label}</button>)}</div>
+          <div className="mobileNavGroups">{mobileGroups.map(group => <section className="mobileNavGroup" key={group.title}><button type="button" className="mobileNavGroupToggle" aria-expanded={mobileGroup === group.title} onClick={() => setMobileGroup(current => current === group.title ? '' : group.title)}><span>{group.title}</span><ChevronDown size={16} className={mobileGroup === group.title ? 'accountChevron open' : 'accountChevron'} /></button>{mobileGroup === group.title && <div className="mobileNavGroupItems">{group.items.map(([label, page]) => <button key={page} onClick={() => go(page)}>{label}</button>)}{group.title === 'Institution' && <button key="dashboard" className="mobilePortalNavLink" onClick={() => go('dashboard')}>Member Portal</button>}</div>}</section>)}</div>
           <div className="mobileAccountBlock">
             <div className="mobileAccountTitle"><UserRound size={17} /><span>Account</span></div>
             {accountActions()}

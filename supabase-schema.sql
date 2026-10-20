@@ -72,7 +72,9 @@ create table if not exists public.membership_payments (
 -- Fields used by the server-side payment verification and membership upgrade flow.
 alter table public.profiles add column if not exists membership_number text;
 alter table public.profiles add column if not exists membership_activated_at timestamptz;
+alter table public.profiles add column if not exists membership_expires_at timestamptz;
 alter table public.membership_fee_schedule add column if not exists upgrade_amount_kobo bigint check (upgrade_amount_kobo is null or upgrade_amount_kobo > 0);
+alter table public.membership_fee_schedule add column if not exists renewal_amount_kobo bigint check (renewal_amount_kobo is null or renewal_amount_kobo > 0);
 alter table public.membership_payments add column if not exists payment_type text not null default 'membership';
 alter table public.membership_payments drop constraint if exists membership_payments_payment_type_check;
 alter table public.membership_payments add constraint membership_payments_payment_type_check check (payment_type in ('membership','upgrade','renewal'));

@@ -22,10 +22,15 @@ Deno.serve(async (req) => {
     const { data: app, error: appLookupError } = await admin.from('membership_applications').select('id,user_id,category,status,application_type').eq('id', applicationId).eq('user_id', user.id).maybeSingle();
     if (appLookupError || !app || app.status !== 'approved') throw new Error('Your application must be approved by NI4E before payment.');
     const category = String(app.category || body.category || user.user_metadata?.membership_category || 'Corporate Member');
-    const { data: fee, error: feeError } = await admin.from('membership_fee_schedule').select('category,amount_kobo,upgrade_amount_kobo,currency').eq('category', category).eq('active', true).maybeSingle();
+    const { data: renewalSetting, error: renewalSettingError } = await admin.from('site_settings').select('setting_value').eq('setting_key', 'ni4e_renewal_basis').maybeSingle();
+    if (renewalSettingError) throw renewalSettingError;
+    const renewalBasis = typeof renewalSetting?.setting_value === 'string' ? renewalSetting.setting_value : renewalSetting?.setting_value == null ? 'not_configured' : String(renewalSetting.setting_value).replace(/^"|"$/g, '');
+    const isRenewal = app.application_type === 'renewal';
+    if (isRenewal && renewalBasis !== 'anniversary') throw new Error('NI4E must configure the annual renewal date calculation in Admin → Membership Policies before renewal payment can begin. No payment was taken.');
+    const { data: fee, error: feeError } = await admin.from('membership_fee_schedule').select('category,amount_kobo,upgrade_amount_kobo,renewal_amount_kobo,currency').eq('category', category).eq('active', true).maybeSingle();
     if (feeError) throw feeError;
-    const payableAmount = app.application_type === 'upgrade' ? fee?.upgrade_amount_kobo : fee?.amount_kobo;
-    if (!payableAmount || payableAmount < 1) throw new Error(app.application_type === 'upgrade' ? 'NI4E has not configured the approved upgrade fee for this category yet.' : 'NI4E has not configured an approved fee for this membership category.');
+    const payableAmount = app.application_type === 'upgrade' ? fee?.upgrade_amount_kobo : isRenewal ? fee?.renewal_amount_kobo : fee?.amount_kobo;
+    if (!payableAmount || payableAmount < 1) throw new Error(app.application_type === 'upgrade' ? 'NI4E has not configured the approved upgrade fee for this category yet.' : isRenewal ? 'NI4E has not configured an approved annual renewal fee for this category.' : 'NI4E has not configured an approved fee for this membership category.');
     const reference = `NI4E-${crypto.randomUUID()}`;
     const { error: insertError } = await admin.from('membership_payments').insert({ user_id: user.id, application_id: app.id, payment_type: app.application_type === 'upgrade' ? 'upgrade' : (app.application_type === 'renewal' ? 'renewal' : 'membership'), category: fee.category, amount_kobo: payableAmount, currency: 'NGN', provider: 'paystack', provider_reference: reference, status: 'pending' });
     if (insertError) throw insertError;

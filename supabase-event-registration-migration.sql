@@ -12,6 +12,14 @@ create table if not exists public.event_registrations (
   updated_at timestamptz not null default now(),
   unique (event_id, email)
 );
+alter table public.event_registrations add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table public.event_registrations add column if not exists attendee_count integer not null default 1 check (attendee_count between 1 and 20);
+alter table public.event_registrations add column if not exists payment_status text not null default 'not_required';
+alter table public.event_registrations add column if not exists currency text not null default 'NGN';
+alter table public.event_registrations add column if not exists amount_kobo bigint;
+alter table public.event_registrations add column if not exists payment_reference text;
+alter table public.event_registrations add column if not exists paid_at timestamptz;
+
 create index if not exists event_registrations_created_at_idx on public.event_registrations (created_at desc);
 create index if not exists event_registrations_event_id_idx on public.event_registrations (event_id);
 alter table public.event_registrations enable row level security;

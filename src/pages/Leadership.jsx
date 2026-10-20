@@ -1,23 +1,83 @@
-import React from 'react';
-import { ArrowRight, ExternalLink, Users, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Award, ExternalLink, RefreshCw, Users, ArrowUpRight, ShieldCheck, BookOpen, Network, Landmark } from 'lucide-react';
 import { PageHero } from '../components';
 import useReveal from '../hooks/useReveal';
+import { supabase, supabaseConfigured } from '../firebase/config';
+import { useRef } from 'react';
 
-const parentExecutives = [
- ['Engr. Ali Alimasuya Rabiu, FNSE, F.ASCE, FAEng, MFR','President'],
- ['Engr. Valerie Ifueko Agberagba, FNSE','Deputy President'],
- ['Engr. (Dr.) Halimat S. C. Adediran, FNSE','Vice-President — Engineering Technology & Innovation Management'],
- ['Engr. Ben Osy Okoh, FNSE, F.ASCE','Vice-President — Corporate Services'],
- ['Engr. Aluyah Dauda Okodugha, PhD, FNSE','Vice-President — Professional Development'],
- ['Engr. Rachel Serumun Ugye, FNSE','Vice-President — Assets Management'],
- ['Engr. Usman Tijjani, FNSE, mni','Vice-President — Membership Services'],
- ['Engr. Usman Abdu Abubakar, FNSE','EXCO Member — Engineering Technology & Innovation Management'],
- ['Engr. Ayotunde Olukayode Ogunnioki, FNSE, FNICE, FNIHTE','EXCO Member — Assets Management'],
- ['Engr. Evukowhiroro Ojegba, PhD, FNSE','EXCO Member — Membership Services'],
- ['Engr. Tijjani Dayyabu, FNSE','EXCO Member — Professional Development'],
- ['Engr. Dauda Musa, FNSE','EXCO Member — Corporate Services'],
- ['Engr. Nze Mathew Chuks Madu, FNSE, MNIEE, MNIEEE, MNIIndE, NIFEngM','EXCO Member — Collaboration and Linkages'],
- ['Engr. Margaret Aina Oguntala, FNSE','Immediate Past President'],
- ['Engr. Ibrahim Aliyu Dustinma, FNSE','Executive Secretary']
+const previewLeaders = [
+ {id:'leadership-profile-president',name:'Engr. Ibrahim A. Danjuma',title:'National President',group:'National Executive',biography:'A senior engineering professional focused on advancing technical excellence, ethical practice and stronger collaboration between the engineering community, industry and public institutions. His portfolio centres on institutional development, member engagement and practical responses to Nigeria’s energy and infrastructure priorities.',summary:'Institutional strategy, professional standards and industry collaboration.',priorities:['Strengthen professional standards and ethical practice','Expand industry and academic partnerships','Promote practical engineering solutions for national development'],sampleProfile:true,source:'NI4E leadership profile'},
+ {id:'leadership-profile-vice-president',name:'Engr. Hadiza M. Yusuf',title:'National Vice President',group:'National Executive',biography:'An engineering leader with interests in member development, organisational performance and professional collaboration. The Vice President’s portfolio supports executive coordination, strengthens member services and helps turn institutional priorities into measurable programmes.',summary:'Executive coordination, member services and programme delivery.',priorities:['Coordinate delivery of the institutional work programme','Improve member services and professional engagement','Support regional and technical community development'],sampleProfile:true,source:'NI4E leadership profile'},
+ {id:'leadership-profile-secretary',name:'Engr. Chinedu O. Okafor',title:'National Secretary',group:'Secretariat',biography:'The National Secretary portfolio supports governance, institutional records, official communication and continuity across the Institution’s programmes. Its priorities include clear reporting, timely correspondence and accessible records for members and stakeholders.',summary:'Governance, institutional records and official communication.',priorities:['Maintain accurate institutional records','Support clear and timely official communication','Coordinate meeting decisions and follow-up actions'],sampleProfile:true,source:'NI4E leadership profile'},
+ {id:'leadership-profile-technical',name:'Engr. Amina S. Bello',title:'Technical Divisions Coordinator',group:'Technical leadership',biography:'The Technical Divisions Coordinator supports specialist communities across energy, electrical and electronics engineering. The portfolio encourages technical exchange, applied learning and collaboration on issues affecting engineering practice and infrastructure performance.',summary:'Technical knowledge exchange, specialist activities and professional learning.',priorities:['Support technical divisions and specialist working groups','Encourage knowledge exchange and applied research','Develop practical technical seminars and learning activities'],sampleProfile:true,source:'NI4E leadership profile'}
 ];
-export default function Leadership({setPage}){useReveal();return <><PageHero title="Leadership" crumb="Leadership" desc="Explore the executive directory and institutional leadership information."/><section className="section reveal"><div className="sectionHead"><div><span className="kicker">EXECUTIVE DIRECTORY</span><h2>Executive Leadership</h2></div><a className="textbtn" href="https://nse.org.ng/2026-exco-members/" target="_blank" rel="noreferrer">View official source <ExternalLink size={16}/></a></div><div className="leaderMiniGrid parentLeadershipGrid">{parentExecutives.map(([name,role],i)=><article key={name} className="parentLeaderCard"><div className="miniPortrait">{name.replace(/^Engr\.? /,'').split(/\s+/).slice(0,2).map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div><b>{name}</b><span>{role}</span>{i===0&&<em>President</em>}</article>)}</div></section></>}
+
+const governance = [
+ {icon:Landmark,title:'National Executive Committee',text:'Provides executive direction, discusses and implements institutional policies, and coordinates national programmes.'},
+ {icon:Network,title:'Technical Section Leadership',text:'Connects specialist engineering communities through technical activity, professional learning and knowledge exchange.'},
+ {icon:ShieldCheck,title:'National Secretariat',text:'Coordinates day-to-day institutional administration, records, communication and the implementation of approved decisions.'}
+];
+
+export default function Leadership({ setPage }) {
+  const galleryRef = useRef(null);
+  const [leaders,setLeaders] = useState([]);
+  const [loading,setLoading] = useState(false);
+  const [selected,setSelected] = useState(null);
+  const [query,setQuery] = useState('');
+  const [filter,setFilter] = useState('All leadership');
+  const [notice,setNotice] = useState('');
+  const loadLeaders = async () => {
+    setLoading(true); setNotice('');
+    try {
+      if (!supabaseConfigured || !supabase) throw new Error('The NI4E database is not configured. Approved leadership records cannot be displayed yet.');
+      const { data, error } = await supabase.from('site_content').select('*').eq('content_type','executive').eq('published',true).order('created_at',{ascending:true});
+      if (error) throw error;
+      const mapped = (data || []).map(row => ({ id: row.id, name: row.metadata?.name || row.title, title: row.title || row.metadata?.role, group: row.metadata?.group || 'Institutional leadership', biography: row.body || row.summary, summary: row.summary, sampleProfile: row.metadata?.sampleProfile === true || row.metadata?.demo === true || String(row.title || '').includes('[DEMO]'), email: row.metadata?.email || '', location: row.metadata?.location || '', qualifications: row.metadata?.qualifications || [], experience: row.metadata?.experience || '', career: row.metadata?.career || [], expertise: row.metadata?.expertise || [], responsibilities: row.metadata?.responsibilities || [], priorities: row.metadata?.priorities || [], image: row.metadata?.image || '', source: 'NI4E content database' }));
+      const merged = [...mapped, ...previewLeaders.filter(preview => !mapped.some(item => String(item.title||'').toLowerCase() === String(preview.title||'').toLowerCase()))];
+      setLeaders(merged);
+      setNotice(mapped.length ? 'Approved leadership records are shown alongside clearly labelled profile templates for roles still awaiting confirmation.' : 'Showing leadership profile templates until approved office-holder records are available.');
+    } catch (e) {
+      setLeaders(previewLeaders);
+      setNotice('Showing leadership profile templates because live records could not be loaded. Approved records will appear when the connection is restored.');
+    } finally { setLoading(false); }
+  };
+  useEffect(()=>{loadLeaders();},[]);
+  useEffect(()=>{const el=galleryRef.current;if(!el||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;let paused=false;const timer=window.setInterval(()=>{if(paused||!el.isConnected)return;const card=el.querySelector('article');if(!card)return;const step=card.getBoundingClientRect().width+14;if(el.scrollLeft+el.clientWidth>=el.scrollWidth-8)el.scrollTo({left:0,behavior:'smooth'});else el.scrollBy({left:step,behavior:'smooth'});},4600);const pause=()=>paused=true,resume=()=>paused=false;el.addEventListener('mouseenter',pause);el.addEventListener('mouseleave',resume);el.addEventListener('focusin',pause);el.addEventListener('focusout',resume);return()=>{clearInterval(timer);el.removeEventListener('mouseenter',pause);el.removeEventListener('mouseleave',resume);el.removeEventListener('focusin',pause);el.removeEventListener('focusout',resume);};},[]);
+  useEffect(()=>{document.body.classList.toggle("modal-open",Boolean(selected));return()=>document.body.classList.remove("modal-open");},[selected]);
+  const groups = ['All leadership',...new Set(leaders.map(x=>x.group||'Institutional leadership'))];
+  const visible = leaders.filter(x=>(filter==='All leadership'||(x.group||'Institutional leadership')===filter)&&`${x.name||x.metadata?.name||x.title} ${x.title} ${x.biography||x.body||''}`.toLowerCase().includes(query.toLowerCase().trim()));
+  const initials = name => String(name||'NI4E').replace(/^(Engr\.?\s*|\(Dr\.?\)\s*)/i,'').split(/[ ,]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  return <>
+    <PageHero title="Leadership & Governance" crumb="Leadership" desc="Meet the national executive and technical leaders guiding the Institute’s professional mission, governance and specialist engineering communities." />
+    <section className="section leadershipPagePro">
+      <div className="leadershipIntroPro"><div><span className="kicker">NI4E LEADERSHIP</span><h2>Experience in service of the profession.</h2><p>Explore the leadership records published by NI4E, including approved office holders, responsibilities and technical portfolios.</p></div><span className="leadershipDemoPill">Published leadership records</span></div>
+      <div className="leadershipPhotoCarousel" aria-label="NI4E engineering and leadership gallery">
+        <div className="leadershipPhotoCarouselTrack" ref={galleryRef}>
+          <article><img src="https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=85" alt="Engineers and professionals gathered for a formal meeting"/><div><span>01 / PROFESSIONAL COMMUNITY</span><h3>Leadership through collaboration</h3><p>Professional dialogue, shared responsibility and service to the engineering community.</p></div></article>
+          <article><img src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=1200&q=85" alt="Engineering professionals working with technical equipment"/><div><span>02 / TECHNICAL PRACTICE</span><h3>Engineering expertise in action</h3><p>Connecting professional leadership with technical capability and practical knowledge.</p></div></article>
+          <article><img src="https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1200&q=85" alt="Electricity transmission infrastructure at sunset"/><div><span>03 / NATIONAL DEVELOPMENT</span><h3>Powering essential infrastructure</h3><p>Professional standards and technical knowledge that support reliable engineering systems.</p></div></article>
+          <article><img src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=85" alt="Professionals participating in a collaborative discussion"/><div><span>04 / GOVERNANCE</span><h3>Shared direction, clear accountability</h3><p>Governance, coordination and follow-through on institutional priorities.</p></div></article>
+        </div>
+        <div className="leadershipPhotoHint">Swipe to explore the professional community <span>→</span></div>
+      </div>
+      <div className="leadershipGovernanceGrid">{governance.map(({icon:Icon,title,text})=><article key={title}><span><Icon size={22}/></span><h3>{title}</h3><p>{text}</p></article>)}</div>
+      <div className="leadershipToolbar"><div><span className="kicker">LEADERSHIP DIRECTORY</span><h2>National executive & technical leadership</h2><p>{visible.length} profiles shown</p></div><button type="button" className="textbtn" onClick={loadLeaders} disabled={loading}><RefreshCw size={16}/>{loading?'Refreshing…':'Refresh records'}</button></div>
+      <label className="leadershipSearch"><span>Search leaders</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search a name, role or technical area"/></label>
+      <div className="leadershipFilters">{groups.map(g=><button key={g} type="button" className={filter===g?'active':''} onClick={()=>setFilter(g)}>{g}</button>)}</div>
+      {notice&&<p className="leadershipStatus" role="status">{notice}</p>}
+      {visible.length===0 && !loading ? <div className="publicState"><Users size={30}/><h3>Approved leadership records will appear here</h3><p>NI4E administrators can publish verified office holders and profiles through Admin → Executives. Unverified names and career histories are not displayed as official leadership.</p></div> : <div className="leadershipProfileGrid">{visible.map((leader,i)=><article className="leadershipProfileCard" key={leader.id||leader.name||leader.title} style={{'--profile-index':i}}>
+        <div className="leadershipProfileBanner"><img className="leadershipProfileBackdrop" src={leader.title?.toLowerCase().includes('power') ? 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=900&q=80' : leader.title?.toLowerCase().includes('space') || leader.title?.toLowerCase().includes('avionic') ? 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=900&q=80' : leader.title?.toLowerCase().includes('communication') || leader.title?.toLowerCase().includes('ict') ? 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80' : 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=900&q=80'} alt="Engineering field related to this leadership portfolio" loading="lazy"/><span className="leadershipMonogram">{initials(leader.name||leader.metadata?.name||leader.title)}</span><span className="leadershipBannerSeal"><Award size={20}/></span><span className="leadershipBannerLabel">{leader.sampleProfile ? 'DEMO PROFILE' : 'NATIONAL LEADERSHIP'}</span></div>
+        <div className="leadershipProfileContent"><span className="leadershipRole">{leader.title}</span>{leader.sampleProfile&&<span className="leadershipDemoPill">DEMO ONLY · NOT AN OFFICIAL OFFICE-HOLDER RECORD</span>}<h3>{leader.name||leader.metadata?.name||leader.title}</h3><p>{leader.biography||leader.body||leader.summary}</p>
+          {leader.priorities?.length>0&&<div className="leadershipPriority"><b>Portfolio priorities</b><ul>{leader.priorities.slice(0,3).map(p=><li key={p}>{p}</li>)}</ul></div>}
+          <div className="leadershipCardFooter"><span>{leader.group||'Institutional leadership'}</span><button type="button" onClick={()=>setSelected(leader)}>Full profile <ArrowUpRight size={15}/></button></div>
+        </div>
+      </article>)}</div>}
+    </section>
+    {selected&&<div className="publicModalBackdrop" onMouseDown={e=>e.target===e.currentTarget&&setSelected(null)}><section className="publicDetailModal leadershipDetailModal" role="dialog" aria-modal="true" aria-labelledby="leader-detail-title"><button className="publicModalClose" onClick={()=>setSelected(null)} aria-label="Close profile">×</button><div className="leadershipDetailHero"><img className="leadershipDetailPhoto" src={selected.title?.toLowerCase().includes('power') ? 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=900&q=80' : selected.title?.toLowerCase().includes('space') || selected.title?.toLowerCase().includes('avionic') ? 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=900&q=80' : selected.title?.toLowerCase().includes('communication') || selected.title?.toLowerCase().includes('ict') ? 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80' : 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=900&q=80'} alt="Engineering portfolio"/><span className="leadershipMonogram">{initials(selected.name||selected.title)}</span><div><span className="kicker">LEADERSHIP PROFILE</span><h2 id="leader-detail-title">{selected.name||selected.metadata?.name||selected.title}</h2><p>{selected.title}</p></div></div><h3>Professional profile</h3><p>{selected.biography||selected.body||selected.summary}</p>
+      <div className="leadershipDetailFacts"><div><span>QUALIFICATIONS</span><ul>{(selected.qualifications||[]).map(x=><li key={x}>{x}</li>)}</ul></div><div><span>EXPERIENCE</span><p>{selected.experience||'Professional experience relevant to this portfolio.'}</p></div><div><span>CONTACT</span>{selected.email ? <a href={`mailto:${selected.email}`}>{selected.email}</a> : <p>Contact information not published</p>}</div><div><span>BASE</span><p>{selected.location||'Nigeria'}</p></div></div>
+      {selected.career?.length>0&&<><h3>Career experience</h3><div className="leadershipCareerTimeline">{selected.career.map((job,i)=><article key={job.role+i}><span>{job.period}</span><b>{job.role}</b><p>{job.org}</p></article>)}</div></>}
+      {selected.expertise?.length>0&&<><h3>Areas of expertise</h3><div className="leadershipExpertiseChips">{selected.expertise.map(x=><span key={x}>{x}</span>)}</div></>}
+      {selected.responsibilities?.length>0&&<><h3>Role responsibilities</h3><ul className="leadershipDetailList">{selected.responsibilities.map(x=><li key={x}>{x}</li>)}</ul></>}
+      {selected.priorities?.length>0&&<><h3>Portfolio priorities</h3><ul className="leadershipDetailList">{selected.priorities.map(p=><li key={p}>{p}</li>)}</ul></>}<div className="leadershipProfileSource"><span>{selected.sampleProfile ? 'DEMO ONLY — replace with approved NI4E leadership data before production.' : (selected.source ? `Source: ${selected.source}` : 'NI4E leadership and governance')}</span></div><button className="textbtn publicCloseText" onClick={()=>setSelected(null)}>Close profile</button></section></div>}
+  </>;
+}

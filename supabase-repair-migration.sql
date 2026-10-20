@@ -6,6 +6,16 @@
 
 create extension if not exists pgcrypto;
 
+-- Required member expiry and fee-schedule columns referenced by frontend/admin.
+-- Additive and safe to re-run; does not invent official fee values.
+alter table if exists public.profiles add column if not exists membership_expires_at timestamptz;
+alter table if exists public.membership_fee_schedule add column if not exists amount_kobo bigint;
+alter table if exists public.membership_fee_schedule add column if not exists upgrade_amount_kobo bigint;
+alter table if exists public.membership_fee_schedule add column if not exists renewal_amount_kobo bigint;
+alter table if exists public.membership_fee_schedule add column if not exists currency text not null default 'NGN';
+alter table if exists public.membership_fee_schedule add column if not exists active boolean not null default false;
+alter table if exists public.membership_fee_schedule add column if not exists updated_at timestamptz not null default now();
+
 -- Profiles / role and member portal state.
 alter table if exists public.profiles add column if not exists full_name text not null default '';
 alter table if exists public.profiles add column if not exists email text not null default '';
@@ -97,7 +107,7 @@ alter table public.site_content add column if not exists created_at timestamptz 
 alter table public.site_content add column if not exists updated_at timestamptz not null default now();
 alter table public.site_content drop constraint if exists site_content_content_type_check;
 alter table public.site_content add constraint site_content_content_type_check
-  check (content_type in ('news','event','publication','chapter','executive','past_president','technical_division','document','project','committee'));
+  check (content_type in ('news','event','publication','chapter','executive','past_president','technical_division','document','project','committee','institutional_page'));
 update public.site_content set slug = 'migrated-' || id::text where slug is null or length(trim(slug)) = 0;
 create index if not exists site_content_type_slug_idx on public.site_content(content_type, slug);
 create index if not exists site_content_published_type_created_idx on public.site_content(published, content_type, created_at desc);
@@ -315,3 +325,12 @@ create trigger protect_profile_membership_fields_trigger before update on public
 for each row execute function public.protect_profile_membership_fields();
 
 notify pgrst, 'reload schema';
+
+-- Membership payment/profile columns referenced by the current frontend and Edge Functions.
+alter table public.profiles add column if not exists membership_number text;
+alter table public.profiles add column if not exists membership_activated_at timestamptz;
+alter table public.profiles add column if not exists membership_expires_at timestamptz;
+alter table public.membership_fee_schedule add column if not exists upgrade_amount_kobo bigint;
+alter table public.membership_fee_schedule add column if not exists renewal_amount_kobo bigint;
+alter table public.membership_payments add column if not exists payment_type text not null default 'membership';
+alter table public.membership_payments add column if not exists provider_transaction_id text;

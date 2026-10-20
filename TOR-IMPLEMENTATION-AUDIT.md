@@ -59,3 +59,17 @@ Source inspection and SQL/source consistency checks were performed. `npm install
 - Newsletter double opt-in, unsubscribe handling and email delivery are not configured. The form records subscriptions only.
 - Production build, browser/device tests, actual Supabase RLS tests, Edge Function deployment and Paystack/email end-to-end tests remain unverified because dependency installation timed out in this environment.
 - Public Events, News and Publications pages now query published records from `site_content` and render the published title/summary/body when available, retaining clearly illustrative fallback cards when no approved content has been published yet.
+
+## Additional Requirement 2/3 pass (2026-10-17)
+- Events, Chapters, Publications, Projects, Technical Divisions and Committees now retain and render illustrative preview content when the backend is unavailable or returns no published records; existing live rows are preserved and preview entries are de-duplicated by title.
+- Past Presidents now uses archive templates with no invented people or dates when approved history is unavailable.
+- Leadership now shows approved live records alongside clearly labelled role templates, or role templates if live records cannot load. No actual person identity is fabricated.
+- Fixed public content rendering conditions so a fallback dataset is not hidden behind the error state.
+- Demo content is explicitly labelled, and demo event registration is disabled.
+- Fixed both demo seed and repair migration content-type constraints to allow `institutional_page`, preserving the existing institutional page records.
+- Requirement 3: correction resubmission policy now defaults to `same_application` as agreed, and the policy migration updates only the old unconfigured placeholder. The existing resubmission RPC retains the application UUID and review history. Member dashboard formats the application reference consistently as `NI4E-XXXXXXXX`; this remains distinct from the official membership number.
+- Member directory empty-state explains that only approved members with an official membership number and an allowed status appear; no fake members are inserted into the public directory.
+
+### Validation after this pass
+- TypeScript transpile parser checked 39 JSX/TSX files: zero syntax diagnostics.
+- A production Vite build could not be run because dependency installation timed out and the local Vite executable is unavailable. No live Supabase/RLS, storage, email, or Paystack transaction test was performed. Those remain required before claiming production completion.

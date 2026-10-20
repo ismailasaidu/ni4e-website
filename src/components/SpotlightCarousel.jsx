@@ -3,12 +3,12 @@ import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function SpotlightCarousel({ items = [], label = 'Featured highlights', autoPlay = true }) {
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [keyboardPaused, setKeyboardPaused] = useState(false);
   useEffect(() => {
-    if (!autoPlay || paused || items.length < 2) return undefined;
+    if (!autoPlay || keyboardPaused || items.length < 2) return undefined;
     const timer = window.setInterval(() => setIndex(i => (i + 1) % items.length), 6500);
     return () => window.clearInterval(timer);
-  }, [autoPlay, paused, items.length]);
+  }, [autoPlay, keyboardPaused, items.length]);
 
   if (!items.length) return null;
   const item = items[index];
@@ -16,8 +16,7 @@ export default function SpotlightCarousel({ items = [], label = 'Featured highli
 
   return (
     <section className="spotlightCarousel" aria-label={label}
-      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false); }}>
+      onFocus={() => setKeyboardPaused(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setKeyboardPaused(false); }}>
       <div className="spotlightTexture" aria-hidden="true" />
       <div className="spotlightCopy" key={index}>
         <span className="spotlightEyebrow"><Sparkles size={14}/>{item.eyebrow || label}</span>

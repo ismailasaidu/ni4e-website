@@ -19,11 +19,12 @@ export default function Login({ setPage, notify }) {
       if (createAccount) {
         if (!fullName.trim() || !phone.trim()) throw new Error('Enter your full name and phone number to create an account.');
         if (password.length < 6) throw new Error('Choose a password with at least 6 characters.');
-        const { data: created, error: createError } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password, options: { data: { full_name: fullName.trim(), phone: phone.trim(), membership_category: 'Graduate Member' } } });
+        const { data: created, error: createError } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password, options: { data: { full_name: fullName.trim(), phone: phone.trim() } } });
         if (createError) throw createError;
         if (!created.session) { notify?.('Account created', 'Confirm your email, then sign in to submit your membership application.'); setCreateAccount(false); setPassword(''); return; }
-        notify?.('Account created', 'You are signed in. Continue to your membership application.');
-        setPage('register');
+        let requestedAfterCreate = ''; try { requestedAfterCreate = sessionStorage.getItem('ni4e_after_login') || ''; sessionStorage.removeItem('ni4e_after_login'); } catch {}
+        notify?.('Account created', 'Your account is ready. Continue with the action you selected.');
+        setPage(requestedAfterCreate === 'events' ? 'events' : requestedAfterCreate === 'fellowship' ? 'fellowship' : 'register');
         return;
       }
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -36,6 +37,17 @@ export default function Login({ setPage, notify }) {
         return;
       }
       if (requestedDestination === 'register') { notify?.('Signed in', 'Continue with your membership application.'); setPage('register'); return; }
+      if (requestedDestination === 'fellowship') { notify?.('Signed in', 'Continue with your Fellowship application.'); setPage('fellowship'); return; }
+      if (requestedDestination === 'events') { notify?.('Signed in', 'Continue with event registration.'); setPage('events'); return; }
+      // Return to the requested portal page after authentication. ProtectedRoute
+      // will still enforce role and membership eligibility; applicants see the
+      // limited applicant portal instead of being sent away from their request.
+      const protectedDestinations = ['dashboard', 'memberProfile', 'memberMembership', 'memberPayments', 'memberEvents', 'memberResources', 'memberCertificates', 'memberSettings', 'membershipStatus', 'admin'];
+      if (protectedDestinations.includes(requestedDestination)) {
+        notify?.('Signed in', 'Opening your requested NI4E page.');
+        setPage(requestedDestination);
+        return;
+      }
       if (accountProfile?.membership_status !== 'active') {
         notify?.('Your member portal is not active yet', 'You can track your application here. Full member access unlocks after approval and verified payment.');
         setPage('payment');

@@ -30,3 +30,16 @@ Before deployment, run the functions locally or in a test Supabase project and t
 7. After an approved application/upgrade has a provider-verified successful payment, the payment function activates the profile and creates a demo-certificate record. The dashboard certificate is visibly marked DEMO ONLY and must not be represented as an official NI4E credential.
 
 SMTP credentials are never placed in React or VITE environment variables; they live only in Supabase Edge Function secrets. The email webhook uses Nodemailer and can be configured once NI4E supplies its SMTP host, port, username, password and sender address.
+
+## Integrated Stage 1–3 event payments and policy configuration
+
+Read `STAGE-1-2-3-INTEGRATED-HANDOVER.md` for the complete scope, migration sequence, admin setup and acceptance tests. New event-payment functions:
+
+```sh
+supabase functions deploy initialize-event-payment
+supabase functions deploy verify-event-payment
+```
+
+The event checkout reads the approved ticket fee from the published event's `metadata.fee_amount_kobo`; it does not trust a client-supplied amount. Apply `supabase-stage-3-integrated-event-payments.sql` before deploying/testing these functions. Event payment success emails use the existing `ni4e-email-webhook` and require `NI4E_WEBHOOK_SECRET` plus SMTP secrets. Configure Database Webhooks for free `event_registrations` INSERT and successful `event_payments` UPDATE as described in the integrated handover.
+
+Admin policy values are stored in `site_settings` by `src/admin/MembershipPolicySettings.jsx`. Apply `supabase-stage-3-membership-policy-settings.sql` and `supabase-stage-3-membership-resubmission-policy.sql` before testing correction and reapplication paths. Rerun `supabase-requirement-3-directory-verification.sql` to update the public RPCs after the policy migration.

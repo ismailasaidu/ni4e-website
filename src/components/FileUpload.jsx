@@ -31,8 +31,12 @@ export default function FileUpload({ label, value, onChange, required = false, a
       onChange(null);
       return;
     }
-    const accepted = accept.split(',').map(type => type.trim());
-    if (accepted.length && !accepted.includes(file.type) && !accepted.includes('*/*')) {
+    const accepted = accept.split(',').map(type => type.trim().toLowerCase()).filter(Boolean);
+    const extension = `.${String(file.name.split('.').pop() || '').toLowerCase()}`;
+    const acceptedByMime = accepted.includes(String(file.type || '').toLowerCase());
+    const acceptedByExtension = accepted.includes(extension);
+    const acceptedByWildcard = accepted.includes('*/*') || accepted.some(type => type.endsWith('/*') && String(file.type || '').toLowerCase().startsWith(type.slice(0, -1)));
+    if (accepted.length && !acceptedByMime && !acceptedByExtension && !acceptedByWildcard) {
       setValidationMessage('Choose a supported file type.');
       event.target.value = '';
       onChange(null);

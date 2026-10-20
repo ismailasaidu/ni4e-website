@@ -1,3 +1,2 @@
-import React, {useEffect, useMemo, useState} from 'react';
-
-export default function Field({label,value,onChange,placeholder,wide=false}){return <label className={wide?'wideField':''}>{label}<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></label>}
+import React from 'react';
+export default function Field({label,value,onChange,placeholder,wide=false,type='text',required=false,min,max,autoComplete,inputMode,rows=4}){const common={required,min,max,autoComplete,value:value??'',onChange:e=>onChange(e.target.value),placeholder};return <label className={wide?'wideField':''}>{label}{type==='textarea'?<textarea {...common} rows={rows} />:<input {...common} type={type} inputMode={inputMode}/>}</label>}

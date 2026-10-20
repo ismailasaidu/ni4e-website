@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, Award, BookOpen, Building2,
   CalendarDays, CheckCircle2, ChevronRight, CircuitBoard, FileCheck2,
@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import logo from '../assets/ni4e-logo.png';
 import useReveal from '../hooks/useReveal';
-import {events, quickResources} from '../data/site';
+import {quickResources} from '../data/site';
+import { supabase, supabaseConfigured } from '../firebase/config';
 
 const focusAreas = [
   {icon: Zap, number: '01', title: 'Energy systems', copy: 'Support the exchange of knowledge on energy generation, transition, access and resilient infrastructure.'},
@@ -22,7 +23,8 @@ const memberSteps = [
 
 export default function Home({setPage,onSearch}) {
   useReveal();
-  const featuredEvent = events[0];
+  const [featuredEvent, setFeaturedEvent] = useState(null);
+  useEffect(() => { let alive = true; (async () => { if (!supabaseConfigured || !supabase) return; try { const { data, error } = await supabase.from('site_content').select('id,title,summary,event_start,event_end,metadata').eq('content_type','event').eq('published',true).gte('event_start',new Date().toISOString()).order('event_start',{ascending:true}).limit(1); if (!error && alive) setFeaturedEvent((data || [])[0] || null); } catch { if (alive) setFeaturedEvent(null); } })(); return () => { alive = false; }; }, []);
   return <div className="homeV2">
     <section className="hvHero">
       <div className="hvHeroGrid" aria-hidden="true" />
@@ -85,7 +87,7 @@ export default function Home({setPage,onSearch}) {
 
     <section className="hvEvents reveal">
       <div className="hvSectionHead"><div><span className="hvKicker">CONNECT. LEARN. CONTRIBUTE.</span><h2>Ideas move forward <em>when we meet.</em></h2></div><button className="hvTextLink" onClick={()=>setPage('events')}>Explore all events <ArrowRight size={16}/></button></div>
-      <div className="hvEventFeature"><div className="hvEventArtwork"><div className="hvEventRings"/><span className="hvEventEyebrow">NI4E / FEATURED EVENT</span><div className="hvEventMonogram">AG<span>EC</span></div><div className="hvEventArtworkFoot"><span>TECHNICAL EXCHANGE</span><span>PROFESSIONAL NETWORK</span></div></div><div className="hvEventInfo"><div className="hvEventMeta"><span><CalendarDays size={15}/>{featuredEvent?.[1] || 'Details to be announced'}</span><span><Globe2 size={15}/>{featuredEvent?.[2] || 'Nigeria'}</span></div><span className="hvEventTag">{featuredEvent?.[3] || 'CONFERENCE'}</span><h3>{featuredEvent?.[0] || 'Annual General Engineering Conference'}</h3><p>Join the engineering conversation through NI4E events, conferences and professional development activities. Check event details and registration information as they become available.</p><button className="hvButton hvButtonDark" onClick={()=>setPage('events')}>View event details <ArrowRight size={17}/></button><small className="hvEventNote">Event dates and registration details are subject to official confirmation.</small></div></div>
+      <div className="hvEventFeature"><div className="hvEventArtwork"><div className="hvEventRings"/><span className="hvEventEyebrow">NI4E / FEATURED EVENT</span><div className="hvEventMonogram">NI<span>4E</span></div><div className="hvEventArtworkFoot"><span>TECHNICAL EXCHANGE</span><span>PROFESSIONAL NETWORK</span></div></div><div className="hvEventInfo"><div className="hvEventMeta"><span><CalendarDays size={15}/>{featuredEvent?.event_start ? new Date(featuredEvent.event_start).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) : 'No date announced'}</span><span><Globe2 size={15}/>{featuredEvent?.metadata?.venue || 'Venue to be announced'}</span></div><span className="hvEventTag">{featuredEvent?.metadata?.event_type || 'EVENTS & PROFESSIONAL DEVELOPMENT'}</span><h3>{featuredEvent?.title || 'Discover NI4E events'}</h3><p>{featuredEvent?.summary || 'Upcoming conferences, workshops and technical forums will appear here once NI4E publishes approved event details.'}</p><button className="hvButton hvButtonDark" onClick={()=>setPage('events')}>{featuredEvent ? 'View event details' : 'Explore events'} <ArrowRight size={17}/></button>{featuredEvent?.metadata?.is_paid && <small className="hvEventNote">Paid registration may apply. Check the event details for the approved fee.</small>}</div></div>
     </section>
 
     <section className="hvResourceBand reveal"><div><span className="hvKicker">EXPLORE THE INSTITUTION</span><h2>Find your next point of connection.</h2><p>Start with the information, resources and services you need.</p></div><div className="hvResourceGrid">{quickResources.map(([Icon,title,description,page])=><button className="hvResourceCard" key={title} onClick={()=>setPage(page)}><Icon size={22}/><b>{title}</b><small>{description}</small><span>Explore <ArrowUpRight size={15}/></span></button>)}</div></section>

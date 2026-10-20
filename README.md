@@ -75,3 +75,17 @@ See `INTERACTION-AND-ANIMATION-UPDATE.md` for the implemented page transitions, 
 
 If an existing deployment reports missing `review_notes` columns, related-resource loading errors, or admin tabs failing on missing schema fields, open the same Supabase project configured in `.env` and run `supabase-repair-migration.sql` in **Dashboard → SQL Editor**. The migration is designed to be re-runnable and refreshes the PostgREST schema cache. Then reload the site. Do not expose the Supabase service-role key in the frontend. Confirm the intended administrator's `public.profiles.role` is `admin` using a trusted admin workflow.
 
+
+---
+
+## Integrated Stage 1–3 package
+
+For the complete integrated scope, migration order, paid-event checkout setup, annual renewal policy configuration, notification webhooks and acceptance-test checklist, read **[STAGE-1-2-3-INTEGRATED-HANDOVER.md](./STAGE-1-2-3-INTEGRATED-HANDOVER.md)** before deploying. Do not rerun the base schema blindly on the live Supabase project.
+
+## Final schema reconciliation and membership-page status
+
+For an existing NI4E Supabase project, first confirm the base schema and previously applied migrations. Then review and apply `supabase-final-schema-reconciliation.sql` in Supabase SQL Editor. It adds the profile expiry and membership fee renewal columns, plus the fields referenced by current admin, content, contact, newsletter, event/CPD and payment screens. It is additive and does not delete existing member/application/payment rows. Review its policy changes before applying; keep the Supabase service-role key out of frontend variables.
+
+The Membership page now checks for the signed-in user's latest non-Fellowship application and displays its reference, category, status and review notes on the page. Existing applications route to the tracker; correction requests route to the existing application correction flow, and rejected applications remain subject to the configured reapplication waiting period. If the status lookup fails, new-application buttons are disabled rather than risking an accidental duplicate.
+
+Validation note: JSX/TSX syntax parsing passed for 49 source files in this package. A production Vite build could not be verified because `npm ci` did not complete in the execution environment. Live Supabase policies, migration execution, Paystack transactions, email and browser/device workflows must still be tested in the target project before production sign-off.

@@ -5,14 +5,12 @@ import logo from '../assets/ni4e-logo.png';
 
 export default function HomeCarousel({setPage}){
  const [index,setIndex]=useState(0);
- const [paused,setPaused]=useState(false);
  const slide=heroSlides[index];
  useEffect(()=>{
-   if(paused)return;
    const timer=setInterval(()=>setIndex(i=>(i+1)%heroSlides.length),5500);
    return()=>clearInterval(timer);
- },[paused]);
- return <div className="ni4eCarousel" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)}>
+ },[]);
+ return <div className="ni4eCarousel">
   <style>{`
    .ni4eCarousel{position:absolute;inset:0;z-index:3;display:flex;align-items:center}
    .ni4eCarousel .carouselContent{width:min(760px,92%);padding:0 6vw;color:#fff;animation:carouselIn .7s ease both}
@@ -45,7 +43,7 @@ export default function HomeCarousel({setPage}){
    <h1>{slide.title}</h1>
    <p>{slide.text}</p>
    <div className="actions">
-    <button className="gold magnetic" onClick={()=>setPage('register')}>Become a Member <ArrowRight size={18}/></button>
+    <button className="gold magnetic" onClick={()=>setPage('membership')}>Become a Member <ArrowRight size={18}/></button>
     <button className="outline" onClick={()=>setPage('about')}><Globe2 size={17}/> Explore NI4E</button>
    </div>
   </div>
