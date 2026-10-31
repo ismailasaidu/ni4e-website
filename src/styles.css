@@ -4457,14 +4457,37 @@ body.modal-open{overflow:hidden!important;touch-action:none}
   .ni4e-logout{padding:12px 12px}
 }
 
-/* Member membership centre: live validity, progression and lifecycle requests */
-.ni4eMembershipOverview{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.85fr);gap:18px;margin:24px 0 18px;padding:24px;border:1px solid rgba(20,49,45,.12);border-radius:18px;background:linear-gradient(135deg,#102f2b,#17483f);color:#fff;box-shadow:0 16px 40px rgba(16,47,43,.12)}
-.ni4eMembershipOverviewMain h2{margin:9px 0 5px;color:#fff;font-size:clamp(1.45rem,3vw,2rem)}
-.ni4eMembershipOverviewMain p{margin:0 0 14px;color:rgba(255,255,255,.76)}
-.ni4eMembershipOverviewMain .kicker,.ni4eMembershipCountdown>span{color:#e7c987;letter-spacing:.12em;font-size:.7rem;font-weight:800}
-.ni4eMembershipCountdown{display:flex;flex-direction:column;justify-content:center;gap:8px;padding:18px;border:1px solid rgba(255,255,255,.18);border-radius:14px;background:rgba(255,255,255,.07)}
-.ni4eMembershipCountdown>span{display:flex;align-items:center;gap:7px}.ni4eMembershipCountdown strong{font-size:clamp(1.35rem,3vw,2rem);font-variant-numeric:tabular-nums;line-height:1.2;color:#fff}.ni4eMembershipCountdown small{color:rgba(255,255,255,.72)}
-.portalMembershipActions{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:20px 0;padding:20px;border:1px solid rgba(20,49,45,.12);border-radius:16px;background:#fbfaf6}.portalMembershipActions h3{margin:5px 0}.portalMembershipActions p{margin:0;color:#64716e;max-width:650px}.portalMembershipActions .gold{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
-.portalPathwaysHeading{display:flex;justify-content:space-between;align-items:end;margin:28px 0 14px}.portalPathwaysHeading h2{margin:5px 0;font-size:1.45rem}.portalPathwaysHeading p{margin:0;color:#66736f;max-width:760px}
-.portalMembershipPathways{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.portalMembershipPathway{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:19px;border:1px solid rgba(20,49,45,.13);border-radius:16px;background:#fff;min-width:0}.portalMembershipPathway.current{border-color:#b99a58;box-shadow:0 0 0 1px rgba(185,154,88,.16)}.portalPathwayTop{display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px}.portalPathwayIcon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#f3f0e7;color:#17483f}.portalPathwayStep{font-size:.68rem;font-weight:800;letter-spacing:.1em;color:#77817d}.portalMembershipPathway h3{margin:0;font-size:1.08rem}.portalMembershipPathway>p{margin:0;color:#66736f;line-height:1.55}.portalMembershipPathway details{width:100%;margin-top:2px;border-top:1px solid #edf0ed;padding-top:10px}.portalMembershipPathway summary{cursor:pointer;font-weight:750;color:#17483f}.portalPathwayDetails{padding:10px 0 0;color:#53615d;font-size:.9rem}.portalPathwayDetails b{display:block;margin:8px 0 4px;color:#253a35}.portalPathwayDetails ul{margin:0;padding-left:19px}.portalPathwayDetails li{margin:5px 0}.portalPathwayDetails p{font-size:.82rem;color:#75807c}.portalMembershipPathway .outlineDark{display:inline-flex;align-items:center;gap:7px;margin-top:auto}.portalPathwayLocked{display:flex;align-items:center;gap:6px;margin-top:auto;color:#78827e}.portalMembershipPathway details+button{margin-top:2px}.portalMembershipPathways+.adminAlert,.portalMembershipPathways+.applicantUploadSuccess{margin-top:16px}
-@media(max-width:760px){.ni4eMembershipOverview{grid-template-columns:1fr;padding:18px}.portalMembershipActions{align-items:flex-start;flex-direction:column}.portalMembershipActions .gold{width:100%;justify-content:center}.portalMembershipPathways{grid-template-columns:1fr}.portalPathwaysHeading{align-items:flex-start}.ni4eMembershipCountdown strong{font-size:1.45rem}}
+
+/* Leadership profile dialog: override the site-wide embedded-detail styling.
+   This must remain a real overlay; the previous global static-position rules
+   made the profile appear in document flow while the page scroll was locked. */
+.leadershipModalBackdrop {
+  position:fixed !important; inset:0 !important; z-index:2500 !important;
+  display:flex !important; align-items:flex-start !important; justify-content:center !important;
+  width:100% !important; height:100dvh !important; min-height:0 !important;
+  overflow-y:auto !important; overflow-x:hidden !important;
+  padding:24px 16px !important; margin:0 !important;
+  background:rgba(6,29,29,.86) !important; backdrop-filter:blur(7px) !important;
+  -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+}
+.leadershipModalBackdrop .leadershipDetailModal {
+  position:relative !important; flex:0 0 auto !important;
+  width:min(100%,780px) !important; max-width:780px !important;
+  max-height:none !important; height:auto !important; min-height:0 !important;
+  overflow:visible !important; margin:0 auto !important;
+  border:1px solid #dce7df !important; border-radius:18px !important;
+  padding:clamp(22px,4vw,40px) !important;
+  background:#fff !important; color:#17352a !important;
+  box-shadow:0 28px 90px rgba(0,24,21,.38) !important;
+}
+.leadershipModalBackdrop .leadershipDetailModal .publicModalClose {
+  display:grid !important; position:sticky !important; top:0 !important;
+  float:right !important; z-index:20 !important; margin:0 0 10px 12px !important;
+}
+@media(max-width:700px) {
+  .leadershipModalBackdrop { align-items:flex-start !important; padding:env(safe-area-inset-top) 8px env(safe-area-inset-bottom) !important; }
+  .leadershipModalBackdrop .leadershipDetailModal {
+    width:100% !important; max-width:100% !important; border-radius:14px !important;
+    padding:20px 16px calc(30px + env(safe-area-inset-bottom)) !important;
+  }
+}
