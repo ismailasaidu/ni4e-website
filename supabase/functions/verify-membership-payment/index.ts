@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
     let activated = false;
     if (successful && payment.application_id) {
       const { data: app } = await admin.from('membership_applications').select('id,user_id,category,status,application_type').eq('id', payment.application_id).maybeSingle();
-      if (app?.user_id === user.id && ['approved','active'].includes(app.status)) {
+      const isUpgradeApplication = app?.application_type === 'upgrade';
+      const approvedForThisPayment = app && (isUpgradeApplication ? ['approved_for_payment','active'].includes(app.status) : ['approved','active'].includes(app.status));
+      if (app?.user_id === user.id && approvedForThisPayment) {
         // Annual renewal basis is admin-configured; never infer a renewal period from the browser.
         const { data: renewalSetting, error: renewalSettingError } = await admin.from('site_settings').select('setting_value').eq('setting_key', 'ni4e_renewal_basis').maybeSingle();
         if (renewalSettingError) throw renewalSettingError;

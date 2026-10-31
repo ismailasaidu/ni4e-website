@@ -10,11 +10,17 @@ const POLICY_FIELDS = [
   { key:'ni4e_graduate_required_documents', group:'Document requirements', label:'Graduate required documents', type:'textarea', readOnly:true, defaultValue:'Degree certificate or statement of result', help:'Confirmed requirements; these are read-only here.' },
   { key:'ni4e_associate_required_documents', group:'Document requirements', label:'Associate required documents', type:'textarea', defaultValue:'Not configured — NI4E approval required', help:'Do not treat this placeholder as an official requirement.' },
   { key:'ni4e_corporate_required_documents', group:'Document requirements', label:'Corporate required documents', type:'textarea', defaultValue:'Not configured — NI4E clarification required', help:'Do not treat this placeholder as an official requirement.' },
+  { key:'ni4e_upgrade_graduate_required_documents', group:'Upgrade document requirements', label:'Graduate upgrade supporting documents', type:'textarea', defaultValue:'Not configured — NI4E approval required', help:'Enter only the document checklist formally approved for upgrades to Graduate Member.' },
+  { key:'ni4e_upgrade_associate_required_documents', group:'Upgrade document requirements', label:'Associate upgrade supporting documents', type:'textarea', defaultValue:'Not configured — NI4E approval required', help:'Enter only the document checklist formally approved for upgrades to Associate Member.' },
+  { key:'ni4e_upgrade_corporate_required_documents', group:'Upgrade document requirements', label:'Corporate upgrade supporting documents', type:'textarea', defaultValue:'Not configured — NI4E approval required', help:'Enter only the document checklist formally approved for upgrades to Corporate Member.' },
+  { key:'ni4e_upgrade_fellow_required_documents', group:'Upgrade document requirements', label:'Fellow upgrade supporting documents', type:'textarea', defaultValue:'Not configured — NI4E approval required', help:'Enter only the document checklist formally approved for upgrades to Fellow.' },
   { key:'ni4e_application_fee_policy', group:'Fees and payment', label:'Payment timing', type:'select', options:[['after_approval','All fees after approval']], defaultValue:'after_approval', help:'Fixed by the approved Stage 3 decision. Applicants must not pay before approval.' },
   { key:'ni4e_correction_policy', group:'Application lifecycle', label:'Correction request behaviour', type:'select', options:[['same_application_editable','Applicant edits the same application (recommended)'],['admin_reopens','Admin reopens after applicant responds'],['not_configured','Not decided — use safe default']], defaultValue:'not_configured', help:'This remains a policy decision. The system should preserve application reference and history for corrections.' },
-  { key:'ni4e_rejection_wait_days', group:'Application lifecycle', label:'Reapplication waiting period (days)', type:'number', defaultValue:'', help:'Required before enforcing a wait. Leave blank until NI4E confirms the period; blank means no invented period is enforced.' },
+  { key:'ni4e_upgrade_reapplication_wait_months', group:'Application lifecycle', label:'Upgrade reapplication waiting period (months)', type:'number', defaultValue:'6', help:'Default is six months, as agreed. An authorised administrator can change this duration. It is enforced after a rejected upgrade; correction requests do not trigger the waiting period.' },
   { key:'ni4e_review_timeline', group:'Application lifecycle', label:'Official review timeline wording', type:'text', defaultValue:'Not configured — enter the official NI4E review timeline', help:'Enter the exact approved timeline and wording. Do not promise an unconfirmed number of days.' },
   { key:'ni4e_renewal_basis', group:'Renewal', label:'Annual renewal date calculation', type:'select', options:[['not_configured','Not decided — payments blocked until configured'],['anniversary','One year from activation / current expiry']], defaultValue:'not_configured', help:'Choose only the method approved by NI4E. The system will not guess a renewal date basis.' },
+  { key:'ni4e_renewal_open_days_before_expiry', group:'Renewal', label:'Renewal opens (days before expiry)', type:'number', defaultValue:'', help:'Set how many days before expiry a member may submit an annual renewal request. Leave unconfigured until NI4E approves the window.' },
+  { key:'ni4e_renewal_grace_days', group:'Renewal', label:'Renewal grace period (days after expiry)', type:'number', defaultValue:'', help:'Optional approved grace period after expiry. Set 0 if no grace period is allowed. Leave unconfigured until NI4E decides.' },
   { key:'ni4e_annual_renewal_policy', group:'Renewal', label:'Renewal cycle', type:'select', options:[['annual','Annual']], defaultValue:'annual', help:'Annual renewal is confirmed. Grace periods, late fees and reactivation rules remain separate policy decisions.' },
   { key:'ni4e_public_directory_statuses', group:'Directory and privacy', label:'Statuses visible in public directory', type:'text', defaultValue:'active', help:'Comma-separated status values. Recommended default is active only; verification must remain privacy-safe.' },
   { key:'ni4e_max_document_size_mb', group:'Document requirements', label:'Maximum document size (MB)', type:'number', defaultValue:'5', help:'Technical upload limit, not an eligibility requirement. Ensure the Storage bucket limit matches this setting.' },
@@ -44,7 +50,7 @@ export default function MembershipPolicySettings() {
         if (typeof value === 'string') {
           try { const parsed = JSON.parse(value); if (typeof parsed === 'string') value = parsed; } catch { /* plain text */ }
         }
-        map[row.setting_key] = value ?? '';
+        map[row.setting_key] = value === 'not_configured' ? '' : (value ?? '');
       });
       POLICY_FIELDS.forEach(field => { if (map[field.key] === undefined) map[field.key] = field.defaultValue ?? ''; });
       setValues(map); setOriginal(map);
@@ -64,7 +70,7 @@ export default function MembershipPolicySettings() {
         const raw = String(values[field.key] ?? '');
         let value = raw;
         if (field.type === 'number') value = raw.trim() === '' ? 'not_configured' : Number(raw);
-        if (field.type === 'number' && raw.trim() !== '' && (!Number.isFinite(Number(raw)) || Number(raw) < 0)) throw new Error(`${field.label} must be a non-negative number.`);
+        if (field.type === 'number' && raw.trim() !== '' && (!Number.isFinite(Number(raw)) || Number(raw) < 0 || (field.key === 'ni4e_upgrade_reapplication_wait_months' && Number(raw) < 1))) throw new Error(`${field.label} must be ${field.key === 'ni4e_upgrade_reapplication_wait_months' ? 'at least 1' : 'a non-negative'} number.`);
         return { setting_key: field.key, setting_value: value, description: field.help, updated_by: profile?.id || null, updated_at: new Date().toISOString() };
       });
       const { error: upsertError } = await supabase.from('site_settings').upsert(rows, { onConflict: 'setting_key' });

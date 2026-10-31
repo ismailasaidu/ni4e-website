@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 
 export default function useReveal() {
   useEffect(() => {
+    const candidates = document.querySelectorAll('.reveal, .aboutInstitutionalPage > section, .leadershipPagePro > section, .leadershipPagePro > div, .chaptersDirectorySection > div');
+    candidates.forEach(node => node.classList.add('reveal'));
     const nodes = Array.from(document.querySelectorAll('.reveal:not([data-reveal-ready])'));
     if (!nodes.length) return;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -166,14 +166,15 @@ export default function App() {
   }, [page]);
 
   const isPortal = ['dashboard', 'memberProfile', 'memberMembership', 'memberPayments', 'memberEvents', 'memberResources', 'memberCertificates', 'memberSettings', 'admin'].includes(page);
+  const isMemberDashboard = page === 'dashboard';
 
   return (
     <>
       <BuildStyles />
       <ScrollTop />
-      <Header setPage={navigate} onSearch={() => setSearch(true)} />
+      {!isMemberDashboard && <Header setPage={navigate} onSearch={() => setSearch(true)} />}
       {loading && <PageLoader />}
-      <main key={page} className={`siteMain pageTransition ${isPortal ? 'portalMain' : ''}`}>{content}</main>
+      <main key={page} className={`siteMain pageTransition ${isPortal ? 'portalMain' : ''} ${isMemberDashboard ? 'memberDashboardMain' : ''}`}>{content}</main>
       {!isPortal && <Footer setPage={navigate} />}
       <Toast toast={toast} />
       {search && <SearchOverlay close={() => setSearch(false)} setPage={navigate} />}

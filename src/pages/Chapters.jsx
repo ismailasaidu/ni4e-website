@@ -1,12 +1,126 @@
-import React,{useEffect,useMemo,useState} from 'react';
-import {ArrowRight,Globe2,Mail,MapPin,Network,Phone,RefreshCw,Search,ExternalLink,X,CalendarDays,BookOpen,Users} from 'lucide-react';
-import {PageHero} from '../components';import useReveal from '../hooks/useReveal';import RelatedResources from '../components/RelatedResources';import {supabase,supabaseConfigured} from '../firebase/config';
-const mapChapter=row=>({...row,metadata:{...(row.metadata||{}),demo:row.metadata?.demo ?? String(row.id||'').startsWith('chapter-')},meta:row.metadata||{},location:row.metadata?.location||row.metadata?.address||'Nigeria'});
-const mergeChapterPreview=(live,demo)=>{if((live||[]).some(x=>x.metadata?.demo===true))return live||[];const seen=new Set((live||[]).map(x=>String(x.title||'').trim().toLowerCase()));return [...(live||[]),...(demo||[]).filter(x=>!seen.has(String(x.title||'').trim().toLowerCase()))];};
-const demoChapters = [
- {id:'chapter-north-central',title:'North-Central Chapter',summary:'Connect with engineering professionals in the North-Central region through technical exchange, professional development and local industry engagement.',body:'The chapter profile presents local professional networking, knowledge exchange, engineering outreach and opportunities to connect with the wider Institution.',metadata:{location:'North-Central Nigeria',demo:true }},
- {id:'chapter-south-west',title:'South-West Chapter',summary:'Connect with engineering professionals across the South-West through technical meetups, knowledge exchange and engineering outreach.',body:'The chapter connects professionals across the region through technical discussions, professional development and collaboration on engineering priorities.',metadata:{location:'South-West Nigeria',demo:true }},
- {id:'chapter-south-east',title:'South-East Chapter',summary:'Build regional collaboration through professional engagement, knowledge exchange and activities that support engineering practice.',body:'The chapter profile highlights professional engagement, technical knowledge sharing and opportunities for collaboration across engineering disciplines.',metadata:{location:'South-East Nigeria',demo:true }},
- {id:'chapter-north-west',title:'North-West Chapter',summary:'Support local engineering engagement through technical sessions, professional networking and collaboration with industry.',body:'The chapter supports local engineering engagement, technical sessions, professional networking and collaboration with the Institution.',metadata:{location:'North-West Nigeria',demo:true }}
-];
-export default function Chapters({setPage}){useReveal();const [items,setItems]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [selected,setSelected]=useState(null);const load=async()=>{setLoading(true);setError('');try{if(!supabaseConfigured||!supabase){setItems(mergeChapterPreview([],demoChapters).map(mapChapter));setError('');return;}const {data,error}=await supabase.from('site_content').select('*').eq('content_type','chapter').eq('published',true).order('title',{ascending:true});if(error)throw error;setItems(mergeChapterPreview(data||[],demoChapters).map(mapChapter));}catch(e){setItems(mergeChapterPreview([],demoChapters).map(mapChapter));setError('');}finally{setLoading(false);}};useEffect(()=>{load();},[]);const filtered=useMemo(()=>items.filter(x=>`${x.title} ${x.summary} ${x.body} ${x.location} ${x.meta?.chapter_lead||''}`.toLowerCase().includes(query.toLowerCase().trim())),[items,query]);return <><PageHero title="Chapters & Network" crumb="Chapters" desc="Find NI4E's recognised chapters and explore the local professional communities, contacts and activities published by the Institution."/><section className="section publicContentSection"><div className="publicListToolbar"><div><span className="kicker">RECOGNISED CHAPTERS</span><h2>Find your chapter</h2></div><label className="publicSearch"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search chapter or location" aria-label="Search chapters"/></label></div><div className="publicFilterRow"><span className="publicDirectoryHint"><Globe2 size={16}/> Public chapter directory</span><button className="publicRefresh" onClick={load} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>{loading?<div className="publicLoadingGrid">{[1,2,3].map(n=><div className="publicSkeleton" key={n}><span/><i/><i/><i/></div>)}</div>:error&&!items.length?<div className="publicState publicStateError"><h3>We couldn't load the chapter directory</h3><p>{error}</p><button className="darkbtn" onClick={load}>Try again</button></div>:filtered.length===0?<div className="publicState"><Network size={32}/><h3>{items.length?'No matching chapters':'Explore the chapter network'}</h3><p>{items.length?'Try searching by a different chapter name or location.':'Search the directory by region or chapter name, or contact the Institution to find the appropriate professional network.'}</p>{query&&<button className="textbtn" onClick={()=>setQuery('')}>Clear search</button>}</div>:<div className="publicCardsGrid chapterDataGrid">{filtered.map((x,i)=><article className="publicDataCard chapterDataCard" key={x.id} style={{'--card-index':i}}><div className="chapterCardGraphic"><div className="chapterGraphicOrb"><Network size={28}/></div><span>NI4E · CHAPTER NETWORK</span></div><div className="chapterDataBody"><span className="publicTag">{x.meta?.demo ? 'DEMO PREVIEW · VERIFY CHAPTER' : 'Chapter profile'}</span><h3>{x.title}</h3><p className="chapterLocation"><MapPin size={16}/>{x.location}</p><p>{x.summary||'Chapter profile and contact information published by NI4E.'}</p><div className="chapterContactBits">{x.meta?.email&&<span><Mail size={15}/>{x.meta.email}</span>}{x.meta?.phone&&<span><Phone size={15}/>{x.meta.phone}</span>}</div><div className="publicCardFooter"><button className="textbtn" onClick={()=>setSelected(x)}>Explore chapter <ArrowRight size={16}/></button>{x.meta?.website&&<a href={x.meta.website} target="_blank" rel="noreferrer" aria-label={`Visit ${x.title} website`}><ExternalLink size={17}/></a>}</div></div></article>)}</div>}<RelatedResources contentType="chapter" title="Chapter resources and activity reports" /></section>{selected&&<div className="publicModalBackdrop" onMouseDown={e=>e.target===e.currentTarget&&setSelected(null)}><section className="publicDetailModal" role="dialog" aria-modal="true" aria-labelledby="chapter-modal-title"><button className="publicModalClose" onClick={()=>setSelected(null)} aria-label="Close"><X/></button><span className="publicTag">{selected.meta?.demo ? 'DEMO ONLY · NOT AN OFFICIAL CHAPTER RECORD' : 'NI4E CHAPTER PROFILE'}</span><h2 id="chapter-modal-title">{selected.title}</h2><div className="publicDetailMeta"><span><MapPin size={17}/>{selected.location}</span>{selected.meta?.chapter_lead&&<span>Chapter lead: {selected.meta.chapter_lead}</span>}</div><div className="publicDetailCopy">{(selected.body||selected.summary||'Further chapter details have not yet been published.').split('\n').map((p,i)=><p key={i}>{p}</p>)}</div><RelatedResources contentType="chapter" contentSlug={selected.slug || ''} title="Chapter documents and activities" compact /><div className="chapterProfileContact">{selected.meta?.email&&<a href={`mailto:${selected.meta.email}`}><Mail size={17}/> {selected.meta.email}</a>}{selected.meta?.phone&&<a href={`tel:${selected.meta.phone}`}><Phone size={17}/> {selected.meta.phone}</a>}{selected.meta?.website&&<a href={selected.meta.website} target="_blank" rel="noreferrer"><ExternalLink size={17}/> Chapter website</a>}</div><div className="chapterNextSteps"><h3>Explore the wider NI4E network</h3><p>Find upcoming technical activities, read public resources, or learn how to participate in the Institution.</p><div className="publicFormActions"><button className="darkbtn" onClick={()=>{setSelected(null);setPage?.('events')}}><CalendarDays size={16}/> Chapter activities & events</button><button className="textbtn" onClick={()=>{setSelected(null);setPage?.('publications')}}><BookOpen size={16}/> Technical resources</button><button className="textbtn" onClick={()=>{setSelected(null);setPage?.('membership')}}><Users size={16}/> Membership</button></div></div><button className="textbtn publicCloseText" onClick={()=>setSelected(null)}>Close profile</button></section></div>}</>}
+import React, { useEffect, useMemo, useState } from 'react';
+import { Globe2, MapPin, Network, Phone, RefreshCw, Search, Users, Building2, Filter } from 'lucide-react';
+import { PageHero } from '../components';
+import useReveal from '../hooks/useReveal';
+import RelatedResources from '../components/RelatedResources';
+import { supabase, supabaseConfigured } from '../firebase/config';
+
+const NATIONAL_OFFICE = {
+  address: 'Veterinary Council Building, 1st Floor, No. 8 Zambezi Crescent, off Aguiyi Ironsi Street, Maitama, Abuja.',
+  phone: '+234 704 711 2162',
+  phoneAlt: '+234 805 552 3211'
+};
+
+// Chapter names, contacts and chapter chairmen are transcribed from the published chapter directory.
+// Only Kaduna's local profile is expanded using the details supplied for this website.
+const chapterDirectory = [
+  ['Aba','Ministry of Works and Transportation, 11 Ikot Ekpene Road, Aba, Abia State','07031826157','Engr. Aronu Chinedu Nnaemeka','South-East'],
+  ['Abeokuta','Bolude Oyebolu Engineering Center (BOEC), opposite OOPL, Abiola Way, Abeokuta, Ogun State','08030698768','Engr. Adegbuyi Temitayo Oyebimpe','South-West'],
+  ['Abuja','Veterinary Council Building, 8 Zambezi Crescent, off Aguiyi Ironsi Street, Maitama, Abuja','08065698567','Engr. Maiyaki Ohida Asema','North-Central'],
+  ['Ado Ekiti','Electrical Department, Ministry of Works and Transportation, Ado Ekiti, Ekiti State','08108645078','Engr. Fakunle Samuel Ojo','South-West'],
+  ['Akure','Ondo State Electricity Board, Alagbaka Road, Akure, Ondo State','08035606305','Engr. Adeyemi Adeyonu Adedokun','South-West'],
+  ['Asaba','Suite A4, Divine Plaza, Summit Road, Asaba, Delta State','07030842980','Engr. Donwa Obatarhe Valentina','South-South'],
+  ['Awka','NSE Secretariat Office, No. 1 Igwebuka Road, Awka, Anambra State','08036675270','Engr. Alegu Joseph Ogbonna','South-East'],
+  ['Bauchi','NSE Bauchi Secretariat, Federal Secretariat Office Complex, Bauchi, Bauchi State','08130719443','Engr. Prof. Yau Haruna','North-East'],
+  ['Benin City','Electricity Regulatory Commission, 6th Floor, Secretariat Block C, Sapele Road, Benin City, Edo State','07035633594','No chapter chairman listed','South-South'],
+  ['Calabar','Calabar Engineering Centre, Parliamentary Extension, Calabar, Cross River State','08096774312','Dr. Ojikutu Kazeem Adedayo','South-South'],
+  ['Egbin-Ikorodu','NSE Egbin-Ikorodu Branch Secretariat, Right Wing, 1st Floor, Defaks Petrol Station, Ginti, along Ijede Road, Ikorodu, Lagos','08188442294','Engr. Ajayi Adekunle Babatope','South-West'],
+  ['Eket','18B Udofa Avenue, P.O. Box 981, Eket, Akwa Ibom State','07038175163','Engr. James Elijah Ini','South-South'],
+  ['Enugu','NSE Enugu Branch Secretariat, No. 52 Chine Avenue, New Haven, Enugu, Enugu State','08035514365','Engr. Nwagba Mackenneth Onyekachi','South-East'],
+  ['Epe/Ibeju-Lekki','Centre for Space Transport and Propulsion, PMB 1002, LASU Campus, Epe, Lagos State','08020586312','Engr. Adedoyin Mary Abosede','South-West'],
+  ['Gombe','NSE Secretariat, Ministry of Works and Transportation, Gombe, Gombe State','07037711265','Engr. Muhammed Musa Wuyo','North-East'],
+  ['Ibadan','NSE Secretariat, Engr. Ife Akintunde House, Kolapo Ishola GRA, Ibadan, Oyo State','08035220384','Engr. Olaifa Gabriel Ayobami','South-West'],
+  ['Ikot Ekpene','Ritman University, Ikot Ekpene, Akwa Ibom State','08033103571','Engr. Essien Ime Eseme','South-South'],
+  ['Ilorin','NSE BEC Office, No. 1 Engineering Close, off Tunde Idigbon Road, University of Ilorin Main Campus, Tankie, Ilorin, Kwara State','08038292878','Engr. Oyewole Michael Olusegun','North-Central'],
+  ['Jos','No. 25 Panjam Street, off Ahmadu Bello Way, Jos, Plateau State','08034526055','Engr. Ayuba Sama Ibrahim','North-Central'],
+  ['Kaduna','Ministry of Public Works & Infrastructure, Kaduna, Kaduna State','08054436413','Engr. Jibia Garba Iliyasu','North-West'],
+  ['Kano','NSE Secretariat, Ministry of Works and Infrastructure, Kano, Kano State','08030479666','Engr. Abba Ibrahim','North-West'],
+  ['Katsina','NSE Secretariat, Old Ministry of Works and Housing, No. 137 Nagogo Road, GRA, Katsina, Katsina State','08037379996','Engr. Salisu Abdulmajid Mohammed','North-West'],
+  ['Lagos','Suite 24, LSDPC Phase IV Services Office, by LAWMA Transfer Loading Station, Oba Ogunji Road, Ogba-Ogbo-Pen Cinema Link Road, Lagos','08038230714','Engr. Anuoluwadiji Oluwafemi Obaloluwa Oladapo John','South-West'],
+  ['Lokoja','Federal University Lokoja, Faculty of Engineering, Department of Electrical and Electronics Engineering, Lokoja, Kogi State','08028785470','Engr. Saleh Umar Abubakar','North-Central'],
+  ['Maiduguri','C/O NSE Secretariat, Ramat Shopping Complex, Maiduguri, Borno State','08035103595','No chapter chairman listed','North-East'],
+  ['Makurdi','C/O Oboh, Julius Ageme, Transmission Company of Nigeria (TCN), Apir Road, Makurdi, Benue State','08164521557','Engr. Dr. Atser Roy','North-Central'],
+  ['Minna','NSE Minna Branch Secretariat, opposite Dogon Koli Hotel, Nnamdi Azikiwe Way, Western Bypass, Minna, Niger State','08036207089','Engr. Mohammed Abubakar Saddiq','North-Central'],
+  ['Nsukka','Department of Electrical Engineering, University of Nigeria, Nsukka, Enugu State','08054092208','Engr. Assoc. Prof. U.C. Ogbuefi','South-East'],
+  ['Onitsha','NSE Secretariat, 32/105 Awka Road, Onitsha, Anambra State','08036666169','Engr. Iloh John Paul Izuchukwu','South-East'],
+  ['Osogbo','NSE Osogbo Permanent Secretariat, behind Zarah Guest House, Onward Area, Osogbo, Osun State','08035028640','Engr. Ugwute Francis Okoro','South-West'],
+  ['Port Harcourt','NSE Port Harcourt Branch Secretariat, B3 Bernard Carr Street, Water Works Yard, Old GRA, Port Harcourt, Rivers State','08037315949','Engr. Iloanwusi Nwachukwu Aloy','South-South'],
+  ['Trans-Amadi','Danalec Office, Danjuma Drive, Trans-Amadi Industrial Area, Port Harcourt, Rivers State','08033388852','Engr. Ntemuse Johnson Sunday','South-South'],
+  ['Uyo','267B Oron Road, Uyo, Akwa Ibom State','08172073420','Engr. Ibanga Ekerette Bernard','South-South'],
+  ['Victoria Island','NSE Headquarters Annex, No. 1 Engineering Close, off Idowu Taylor, Victoria Island, Lagos','08034183844','Engr. Augustine Chukuemeka Duru','South-West'],
+  ['Warri','NSE Secretariat, ORC House, 280 Effurun-Sapele Road, Effurun-Warri, Delta State','07058456638','Engr. Olawoyin Rasaki Abiola','South-South'],
+  ['Yenagoa','NSE/COREN Secretariat, Ministry of Works, Yenagoa, Bayelsa State','07039333454','Engr. Ojukonsin Tebe Larry','South-South']
+].map(([name,address,phone,chairman,region]) => ({
+  id: `chapter-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,
+  title: name,
+  location: address,
+  address,
+  phone,
+  chairman,
+  region,
+  summary: `${name} Chapter connects electrical and electronics engineering practitioners through local professional engagement, technical knowledge-sharing and opportunities to participate in the Institution's activities.`,
+  body: `${name} Chapter is listed in the published national chapter directory. Its listed address and contact number are provided below to help members and prospective members connect with the local professional network. Contact the chapter directly to confirm meeting schedules, local activities and current office-holder details.`,
+  meta: { chapter_lead: chairman, phone, address, region }
+}));
+
+const extraChapterContent = (row) => ({
+  ...row,
+  title: row.title || row.name || 'Chapter',
+  location: row.metadata?.location || row.metadata?.address || row.location || row.address || 'Nigeria',
+  summary: row.summary || 'Chapter profile and contact information published by the Institution.',
+  body: row.body || row.summary || 'Contact the chapter to confirm current activities and local information.',
+  meta: { ...(row.metadata || row.meta || {}), demo: false }
+});
+
+export default function Chapters({ setPage }) {
+  useReveal();
+  const [items, setItems] = useState(chapterDirectory);
+  const [query, setQuery] = useState('');
+  const [region, setRegion] = useState('All regions');
+  const [loading, setLoading] = useState(false);
+  const [page, setCurrentPage] = useState(1);
+  const pageSize = 9;
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      if (!supabaseConfigured || !supabase) return;
+      const { data, error } = await supabase.from('site_content').select('*').eq('content_type','chapter').eq('published',true).order('title',{ascending:true});
+      if (error) throw error;
+      const extras = (data || []).filter(row => row.metadata?.demo !== true && !String(row.id || '').startsWith('chapter-')).map(extraChapterContent);
+      const byName = new Map(chapterDirectory.map(ch => [ch.title.toLowerCase(), ch]));
+      extras.forEach(ch => { if (!byName.has(ch.title.toLowerCase())) byName.set(ch.title.toLowerCase(), ch); });
+      const merged = [...byName.values()].sort((a,b) => a.title.localeCompare(b.title));
+      setItems(merged);
+    } catch {
+      // Keep the usable published directory in place if the optional CMS is unavailable.
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+  useEffect(() => { setCurrentPage(1); }, [query, region]);
+
+  const regions = useMemo(() => ['All regions', ...new Set(items.map(x => x.region || x.meta?.region).filter(Boolean))], [items]);
+  const filtered = useMemo(() => items.filter(x => {
+    const text = `${x.title} ${x.summary} ${x.body} ${x.location} ${x.chairman || x.meta?.chapter_lead || ''} ${x.phone || x.meta?.phone || ''} ${x.region || x.meta?.region || ''}`.toLowerCase();
+    return text.includes(query.trim().toLowerCase()) && (region === 'All regions' || (x.region || x.meta?.region) === region);
+  }), [items, query, region]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  return <>
+    <PageHero title="Chapters & Network" crumb="Chapters" desc="Browse chapter contacts and connect with the professional network across Nigeria." />
+    <section className="section publicContentSection chaptersDirectorySection">
+      <div className="publicListToolbar"><div><span className="kicker">NATIONAL NETWORK</span><h2>Chapters across Nigeria</h2><p className="chapterIntroText">Browse chapter contacts by location, leadership or region.</p></div><label className="publicSearch"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search chapters, city or contact" aria-label="Search chapters"/></label></div>
+      <div className="chapterDirectoryControls"><div className="chapterRegionFilters" aria-label="Filter chapters by region"><Filter size={16}/>{regions.map(item=><button key={item} className={region===item?'active':''} onClick={()=>setRegion(item)}>{item}</button>)}</div><div className="chapterDirectoryActions"><span className="publicDirectoryHint"><Globe2 size={16}/> {filtered.length} of {items.length} chapters</span><button className="publicRefresh" onClick={load} disabled={loading}><RefreshCw size={15} className={loading?'chapterRefreshSpin':''}/> Refresh directory</button></div></div>
+      {filtered.length === 0 ? <div className="publicState"><Network size={32}/><h3>No chapters match that search</h3><p>Try another chapter name, state, region, chairman or phone number.</p><button className="textbtn" onClick={()=>{setQuery('');setRegion('All regions');}}>Clear filters</button></div> : <div className="publicCardsGrid chapterDataGrid">{pageItems.map((x,i)=><article className={`publicDataCard chapterDataCard ${x.title.toLowerCase()==='kaduna'?'chapterFeaturedCard':''}`} key={x.id || x.title} style={{'--card-index':i}}>
+        <div className="chapterCardGraphic"><div className="chapterGraphicOrb"><Network size={27}/></div><div className="chapterGraphicTitle"><span>CHAPTER NETWORK</span><strong>{x.region || x.meta?.region || 'Nigeria'}</strong></div><span className="chapterCardIndex">{String(i+1).padStart(2,'0')}</span></div>
+        <div className="chapterDataBody"><span className="publicTag">{x.region || x.meta?.region || 'Nigeria'}</span><h3>{x.title} Chapter</h3><p className="chapterLocation"><MapPin size={16}/>{x.location}</p><div className="chapterContactBits">{(x.chairman || x.meta?.chapter_lead) && <span><Users size={15}/><span className="chapterContactValue"><b>Chairman</b><span className="chapterContactText">{x.chairman || x.meta?.chapter_lead || 'Not listed'}</span></span></span>}{(x.phone || x.meta?.phone) && <span><Phone size={15}/><span className="chapterContactValue"><b>Phone</b><span className="chapterContactText">{x.phone || x.meta?.phone}</span></span></span>}</div><div className="publicCardFooter">{(x.phone || x.meta?.phone) ? <a className="chapterCallLink" href={`tel:${(x.phone || x.meta?.phone).replace(/[^+\d]/g,'')}`}><Phone size={15}/> Call chapter</a> : <span className="chapterCallUnavailable">Contact not listed</span>}</div></div>
+      </article>)}</div>}
+      {filtered.length > pageSize && <nav className="chapterPagination" aria-label="Chapter directory pages"><span>Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}</span><div><button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Previous page">‹</button>{Array.from({length: pageCount}, (_,i) => i + 1).map(n => <button type="button" key={n} className={page === n ? 'active' : ''} aria-current={page === n ? 'page' : undefined} onClick={() => setCurrentPage(n)}>{n}</button>)}<button type="button" onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))} disabled={page === pageCount} aria-label="Next page">›</button></div></nav>}
+      <div className="chapterNationalContact"><div className="chapterNationalIcon"><Building2 size={24}/></div><div className="chapterNationalCopy"><span className="kicker">NATIONAL SECRETARIAT</span><h3>Contact the National Secretariat</h3><p>{NATIONAL_OFFICE.address}</p><div className="chapterNationalLinks"><a href={`tel:${NATIONAL_OFFICE.phone.replace(/[^+\d]/g,'')}`}><Phone size={16}/>{NATIONAL_OFFICE.phone}</a><a href={`tel:${NATIONAL_OFFICE.phoneAlt.replace(/[^+\d]/g,'')}`}><Phone size={16}/>{NATIONAL_OFFICE.phoneAlt}</a></div></div></div>
+      <RelatedResources contentType="chapter" title="Chapter resources and activity reports" />
+    </section>
+
+  </>;
+}

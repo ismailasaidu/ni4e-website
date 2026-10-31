@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
     const applicationId = String(body.application_id || '');
     if (!applicationId) throw new Error('An approved application is required before payment.');
     const { data: app, error: appLookupError } = await admin.from('membership_applications').select('id,user_id,category,status,application_type').eq('id', applicationId).eq('user_id', user.id).maybeSingle();
-    if (appLookupError || !app || app.status !== 'approved') throw new Error('Your application must be approved by NI4E before payment.');
+    const paymentStageAllowed = app && (app.application_type === 'upgrade' ? app.status === 'approved_for_payment' : app.status === 'approved');
+    if (appLookupError || !app || !paymentStageAllowed) throw new Error(app?.application_type === 'upgrade' ? 'Your upgrade must receive final approval after committee document verification before payment.' : 'Your application must be approved by NI4E before payment.');
     const category = String(app.category || body.category || user.user_metadata?.membership_category || 'Corporate Member');
     const { data: renewalSetting, error: renewalSettingError } = await admin.from('site_settings').select('setting_value').eq('setting_key', 'ni4e_renewal_basis').maybeSingle();
     if (renewalSettingError) throw renewalSettingError;

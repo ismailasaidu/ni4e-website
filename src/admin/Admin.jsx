@@ -37,6 +37,13 @@ const STATUS = [
   "under_review",
   "needs_information",
   "approved",
+  "documents_submitted",
+  "committee_review",
+  "committee_verified",
+  "approved_for_payment",
+  "approved_pending_payment",
+  "payment_pending",
+  "active",
   "rejected",
 ];
 const statusLabel = (value) =>
@@ -44,7 +51,12 @@ const statusLabel = (value) =>
     pending: "Pending review",
     under_review: "Under review",
     needs_information: "Corrections requested",
-    approved: "Approved for payment",
+    approved: "Approved — next step",
+    documents_submitted: "Documents submitted",
+    committee_review: "Committee verification",
+    committee_verified: "Committee verified",
+    approved_for_payment: "Final approval · payment due",
+    approved_pending_payment: "Approved · payment due",
     rejected: "Rejected",
     payment_pending: "Payment pending",
     active: "Active",
@@ -100,6 +112,7 @@ export default function Admin({ setPage }) {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [fees, setFees] = useState([]);
@@ -116,6 +129,7 @@ export default function Admin({ setPage }) {
   const [memberNumberSaving, setMemberNumberSaving] = useState("");
   const [payments, setPayments] = useState([]);
   const [eventPayments, setEventPayments] = useState([]);
+  const [publicationPurchases, setPublicationPurchases] = useState([]);
   const [settings, setSettings] = useState([]);
   const [settingDraft, setSettingDraft] = useState({
     setting_key: "",
@@ -126,6 +140,8 @@ export default function Admin({ setPage }) {
   const [contentRows, setContentRows] = useState([]);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentSaving, setContentSaving] = useState(false);
+  const [publicationUploadBusy, setPublicationUploadBusy] = useState(false);
+  const [publicationUploadMessage, setPublicationUploadMessage] = useState("");
   const [contentDraft, setContentDraft] = useState({
     id: "",
     title: "",
@@ -148,6 +164,9 @@ export default function Admin({ setPage }) {
   const [cpdDraft, setCpdDraft] = useState({ user_id: "", member_name: "", member_email: "", activity_title: "", provider: "", completion_date: new Date().toISOString().slice(0,10), hours: "", certificate_reference: "" });
   const [selected, setSelected] = useState(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [applicationTypeFilter, setApplicationTypeFilter] = useState("all");
+  const [decisionIntent, setDecisionIntent] = useState("");
+  const [confirmingApproval, setConfirmingApproval] = useState(null);
   const [applicationDocuments, setApplicationDocuments] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentError, setDocumentError] = useState("");
@@ -252,12 +271,15 @@ export default function Admin({ setPage }) {
     setError("");
     try {
       requireSupabase();
-      const [{ data, error }, { data: eventData, error: eventError }] = await Promise.all([
+      const [{ data, error }, { data: eventData, error: eventError }, { data: publicationData, error: publicationError }] = await Promise.all([
         supabase.from("membership_payments")
           .select("id,user_id,application_id,category,amount_kobo,currency,provider,provider_reference,status,payment_type,created_at,paid_at")
           .order("created_at", { ascending: false }).limit(300),
         supabase.from("event_payments")
           .select("id,registration_id,event_id,event_title,attendee_email,amount_kobo,currency,provider,provider_reference,status,created_at,paid_at")
+          .order("created_at", { ascending: false }).limit(300),
+        supabase.from("publication_purchases")
+          .select("id,user_id,publication_id,publication_title,amount_kobo,currency,provider_reference,status,created_at,paid_at")
           .order("created_at", { ascending: false }).limit(300),
       ]);
       if (error) throw error;
@@ -265,8 +287,12 @@ export default function Admin({ setPage }) {
       // A missing event-payment migration must not hide valid membership transactions.
       const eventTableMissing = Boolean(eventError && /event_payments|schema cache|does not exist|could not find the table/i.test(eventError.message || ''));
       setEventPayments(eventError ? [] : (eventData || []));
+      const publicationTableMissing = Boolean(publicationError && /publication_purchases|schema cache|does not exist|could not find the table/i.test(publicationError.message || ''));
+      setPublicationPurchases(publicationError ? [] : (publicationData || []));
       if (eventError && !eventTableMissing) throw new Error(`Membership payments loaded, but event payments could not load: ${eventError.message}`);
-      if (eventTableMissing) setError('Membership payments loaded. Event payments are unavailable until the reviewed supabase-stage-3-integrated-event-payments.sql migration is applied.');
+      if (publicationError && !publicationTableMissing) throw new Error(`Publication payment records could not load: ${publicationError.message}`);
+      if (eventTableMissing) setError('Event payments are unavailable until the event payment migration is applied.');
+      else if (publicationTableMissing) setError('Publication sales appear here after you apply supabase/migrations/20261029_publication_commerce.sql.');
     } catch (err) {
       setError(err.message || "Could not load payment records.");
     } finally {
@@ -506,6 +532,25 @@ export default function Admin({ setPage }) {
     setContentDraft({ ...contentDraft, metadata: JSON.stringify(metadata, null, 2) });
   };
   const eventMetadataDraft = (() => { try { const parsed = JSON.parse(contentDraft.metadata || "{}"); return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } })();
+  const uploadPaidPublicationFile = async (file) => {
+    if (!file) return;
+    setPublicationUploadMessage("");
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) { setPublicationUploadMessage("Upload a PDF file for the full publication."); return; }
+    if (file.size > 50 * 1024 * 1024) { setPublicationUploadMessage("The PDF must be 50 MB or smaller."); return; }
+    if (!contentDraft.title.trim()) { setPublicationUploadMessage("Enter the publication title before uploading its PDF."); return; }
+    setPublicationUploadBusy(true);
+    try {
+      requireSupabase();
+      const slug = (contentDraft.slug || contentDraft.title).toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+      const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,"-");
+      const path = `${slug}/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage.from("publication-files").upload(path, file, { upsert: true, contentType: "application/pdf" });
+      if (error) throw error;
+      updateEventMetadata("private_file_path", path);
+      setPublicationUploadMessage(`Secure PDF uploaded: ${path}`);
+    } catch (err) { setPublicationUploadMessage(err.message || "Could not upload the private publication PDF. Confirm admin storage permissions and retry."); }
+    finally { setPublicationUploadBusy(false); }
+  };
   const saveContent = async (e) => {
     e.preventDefault();
     setContentSaving(true);
@@ -538,7 +583,9 @@ export default function Admin({ setPage }) {
         title: contentDraft.title.trim(),
         slug,
         summary: contentDraft.summary.trim(),
-        body: contentDraft.body.trim(),
+        body: type === "publication" && (metadata.is_paid === true || String(metadata.is_paid).toLowerCase() === "true")
+          ? String(metadata.preview || contentDraft.summary || "").trim()
+          : contentDraft.body.trim(),
         metadata,
         published: !!contentDraft.published,
         event_start: contentDraft.event_start
@@ -691,10 +738,11 @@ export default function Admin({ setPage }) {
           );
         return (
           matches &&
-          (statusFilter === "all" || (a.status || "pending") === statusFilter)
+          (statusFilter === "all" || (statusFilter === "awaiting" ? (!a.status || ["pending","under_review","documents_submitted","committee_review","committee_verified"].includes(a.status)) : (a.status || "pending") === statusFilter)) &&
+          (applicationTypeFilter === "all" || (a.application_type || "new") === applicationTypeFilter)
         );
       }),
-    [applications, search, statusFilter],
+    [applications, search, statusFilter, applicationTypeFilter],
   );
 
   const loadApplicationDocuments = async (app) => {
@@ -732,10 +780,19 @@ export default function Admin({ setPage }) {
     }
   };
 
-  const openApplication = (app) => {
+  const openApplication = (app, intent = "") => {
     setSelected(app);
+    setDecisionIntent(intent);
     setReviewNotes(app?.review_notes || "");
+    setDocumentError("");
     loadApplicationDocuments(app);
+  };
+
+  const requestApproval = (app) => {
+    setReviewNotes(app?.review_notes || "");
+    setSelected(null);
+    setDecisionIntent("");
+    setConfirmingApproval(app);
   };
 
   const changeStatus = async (app, status) => {
@@ -752,6 +809,7 @@ export default function Admin({ setPage }) {
     }
     setUpdating(app.id);
     setError("");
+    setNotice("");
     try {
       requireSupabase();
       const { error: reviewError } = await supabase.rpc(
@@ -791,6 +849,11 @@ export default function Admin({ setPage }) {
       );
       setReviewNotes("");
       setSelected(null);
+      setDecisionIntent("");
+      setConfirmingApproval(null);
+      await loadApplications();
+      const decisionLabel = ({ approved: app.application_type === "upgrade" ? "Initial upgrade approval recorded" : "Approved for payment", documents_submitted: "Documents marked submitted", committee_review: "Sent to committee verification", committee_verified: "Committee verification recorded", approved_for_payment: "Final upgrade approval recorded", rejected: "Request declined", needs_information: "Corrections requested", under_review: "Marked as under review" })[status] || "Application updated";
+      setNotice(`${decisionLabel}. The member portal and notification centre will show the updated stage.`);
     } catch (err) {
       setError(err.message || "Unable to update application status.");
     } finally {
@@ -906,6 +969,7 @@ export default function Admin({ setPage }) {
             {error}
           </div>
         )}
+        {notice && <div className="adminSuccessNotice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss notification">×</button></div>}
         {tab === "Applications" ? (
           <>
             <div className="applicationToolbar">
@@ -918,11 +982,22 @@ export default function Admin({ setPage }) {
                 />
               </label>
               <select
+                value={applicationTypeFilter}
+                onChange={(e) => setApplicationTypeFilter(e.target.value)}
+                aria-label="Filter by request type"
+              >
+                <option value="all">All request types</option>
+                <option value="new">New applications</option>
+                <option value="renewal">Membership renewals</option>
+                <option value="upgrade">Membership upgrades</option>
+              </select>
+              <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 aria-label="Filter by application status"
               >
                 <option value="all">All statuses</option>
+                <option value="awaiting">Awaiting action</option>
                 {STATUS.map((s) => (
                   <option key={s} value={s}>
                     {statusLabel(s)}
@@ -938,29 +1013,19 @@ export default function Admin({ setPage }) {
                 {loading ? "Loading" : "Refresh"}
               </button>
             </div>
-            <div className="applicationSummary">
-              <div>
-                <span>Total applications</span>
-                <b>{applications.length}</b>
-              </div>
-              <div>
-                <span>Awaiting review</span>
-                <b>{pending}</b>
-              </div>
-              <div>
-                <span>Approved</span>
-                <b>
-                  {applications.filter((a) => a.status === "approved").length}
-                </b>
-              </div>
+            <div className="applicationSummary applicationSummaryWide">
+              <div><span>All requests</span><b>{applications.length}</b><small>New, renewal and upgrade</small></div>
+              <div><span>Awaiting action</span><b>{pending}</b><small>Pending or under review</small></div>
+              <div><span>New applications</span><b>{applications.filter((a) => !a.application_type || a.application_type === "new").length}</b><small>First-time membership</small></div>
+              <div><span>Renewals</span><b>{applications.filter((a) => a.application_type === "renewal").length}</b><small>Existing members</small></div>
+              <div><span>Upgrades</span><b>{applications.filter((a) => a.application_type === "upgrade").length}</b><small>Category change requests</small></div>
             </div>
             <section className="applicationPanel">
               <div className="applicationPanelHead">
                 <div>
                   <h2>Membership applications</h2>
                   <p>
-                    Review submitted membership applications and update their
-                    status.
+                    One queue for first-time applications, annual renewals and membership upgrades. Open a request to inspect its details and documents before making a decision.
                   </p>
                 </div>
                 <span>{filtered.length} results</span>
@@ -983,7 +1048,8 @@ export default function Admin({ setPage }) {
                     <thead>
                       <tr>
                         <th>Applicant</th>
-                        <th>Category</th>
+                        <th>Request type</th>
+                        <th>Membership category</th>
                         <th>Submitted</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -1000,7 +1066,8 @@ export default function Admin({ setPage }) {
                             </small>
                             <small className="appRef">Ref: {app.id}</small>
                           </td>
-                          <td>{app.category || "Not specified"}</td>
+                          <td><span className={`applicationTypeTag ${(app.application_type || "new")}`}>{({new:"New application",renewal:"Renewal",upgrade:"Upgrade"})[app.application_type || "new"] || "New application"}</span></td>
+                          <td>{app.category || "Not specified"}{app.application_type === "upgrade" && app.previous_category ? <small className="appPreviousCategory">From: {app.previous_category}</small> : null}</td>
                           <td>
                             {app.submittedAt
                               ? new Date(app.submittedAt).toLocaleDateString()
@@ -1014,47 +1081,10 @@ export default function Admin({ setPage }) {
                             </span>
                           </td>
                           <td>
-                            <div className="applicationActions">
-                              <button
-                                aria-label="View application"
-                                title="View details"
-                                onClick={() => openApplication(app)}
-                              >
-                                <Eye size={16} />
-                              </button>
-                              <button
-                                aria-label="Approve application"
-                                title="Approve"
-                                disabled={
-                                  updating === app.id ||
-                                  app.status === "approved"
-                                }
-                                onClick={() => openApplication(app)}
-                              >
-                                <CheckCircle2 size={16} />
-                              </button>
-                              <button
-                                aria-label="Mark under review"
-                                title="Under review"
-                                disabled={updating === app.id}
-                                onClick={() => {
-                                  openApplication(app);
-                                  setReviewNotes(app.review_notes || "");
-                                }}
-                              >
-                                <RefreshCw size={16} />
-                              </button>
-                              <button
-                                aria-label="Reject application"
-                                title="Reject"
-                                disabled={
-                                  updating === app.id ||
-                                  app.status === "rejected"
-                                }
-                                onClick={() => openApplication(app)}
-                              >
-                                <XCircle size={16} />
-                              </button>
+                            <div className="applicationActions applicationActionsLabeled">
+                              <button className="actionView" onClick={() => openApplication(app)}><Eye size={15}/> Review</button>
+                              <button className="actionApprove" disabled={!!updating || app.status === "approved" || app.status === "documents_submitted" || app.status === "committee_review" || app.status === "committee_verified" || app.status === "approved_for_payment" || (app.application_type === "upgrade" && Boolean(app.documents_submitted_at)) || app.status === "rejected" || app.status === "active"} onClick={() => requestApproval(app)}><CheckCircle2 size={15}/> {app.application_type === "upgrade" ? "Initial approve" : "Approve"}</button>
+                              <button className="actionDecline" disabled={!!updating || app.status === "rejected" || app.status === "active"} onClick={() => openApplication(app, "rejected")}><XCircle size={15}/> Decline</button>
                             </div>
                           </td>
                         </tr>
@@ -1063,36 +1093,30 @@ export default function Admin({ setPage }) {
                   </table>
                 </div>
               )}
+              {!loading && filtered.length > 0 && <div className="applicationMobileList">
+                {filtered.map((app) => <article className="applicationMobileCard" key={`mobile-${app.id}`}>
+                  <div className="applicationMobileCardTop"><span className={`applicationTypeTag ${app.application_type || "new"}`}>{({new:"New application",renewal:"Renewal",upgrade:"Upgrade"})[app.application_type || "new"] || "New application"}</span><span className={`applicationStatus ${app.status || "pending"}`}>{statusLabel(app.status)}</span></div>
+                  <h3>{app.fullName || app.name || "Applicant"}</h3>
+                  <p>{app.email || "No email"}{app.phone ? ` · ${app.phone}` : ""}</p>
+                  <div className="applicationMobileMeta"><span>Category</span><b>{app.category || "Not specified"}</b>{app.previous_category && <><span>Previous category</span><b>{app.previous_category}</b></>}<span>Submitted</span><b>{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : "—"}</b></div>
+                  <div className="applicationActions applicationActionsLabeled"><button className="actionView" onClick={() => openApplication(app)}><Eye size={15}/> Review</button><button className="actionApprove" disabled={!!updating || app.status === "approved" || app.status === "documents_submitted" || app.status === "committee_review" || app.status === "committee_verified" || app.status === "approved_for_payment" || (app.application_type === "upgrade" && Boolean(app.documents_submitted_at)) || app.status === "rejected" || app.status === "active"} onClick={() => requestApproval(app)}><CheckCircle2 size={15}/> {app.application_type === "upgrade" ? "Initial approve" : "Approve"}</button><button className="actionDecline" disabled={!!updating || app.status === "rejected" || app.status === "active"} onClick={() => openApplication(app, "rejected")}><XCircle size={15}/> Decline</button></div>
+                </article>)}
+              </div>}
             </section>
           </>
         ) : tab === "Dashboard" ? (
           <>
-            <div className="adminStats">
-              <div>
-                <span>Total Applications</span>
-                <b>{applications.length}</b>
-                <small>Saved in Supabase</small>
+            <section className="dashboardMembershipOverview">
+              <div className="dashboardSectionIntro"><div><span className="kicker">MEMBERSHIP OPERATIONS</span><h2>Requests requiring your attention</h2><p>Live counts from the membership application queue.</p></div><button className="adminRefresh" onClick={loadApplications} disabled={loading}><RefreshCw size={15}/>{loading ? "Refreshing…" : "Refresh queue"}</button></div>
+              <div className="adminStats adminStatsMembership">
+                <button onClick={() => {setApplicationTypeFilter("all");setStatusFilter("all");selectTab("Applications");}}><span>All requests</span><b>{applications.length}</b><small>New, renewal and upgrade</small></button>
+                <button onClick={() => {setApplicationTypeFilter("all");setStatusFilter("awaiting");selectTab("Applications");}}><span>Awaiting review</span><b>{pending}</b><small>Needs administrative action</small></button>
+                <button onClick={() => {setApplicationTypeFilter("new");setStatusFilter("all");selectTab("Applications");}}><span>New applications</span><b>{applications.filter(a => !a.application_type || a.application_type === "new").length}</b><small>First-time applicants</small></button>
+                <button onClick={() => {setApplicationTypeFilter("renewal");setStatusFilter("all");selectTab("Applications");}}><span>Renewal requests</span><b>{applications.filter(a => a.application_type === "renewal").length}</b><small>Existing members</small></button>
+                <button onClick={() => {setApplicationTypeFilter("upgrade");setStatusFilter("all");selectTab("Applications");}}><span>Upgrade requests</span><b>{applications.filter(a => a.application_type === "upgrade").length}</b><small>Membership category changes</small></button>
+                <button onClick={() => {setApplicationTypeFilter("all");setStatusFilter("approved");selectTab("Applications");}}><span>Approved</span><b>{applications.filter(a => a.status === "approved").length}</b><small>Approved for payment</small></button>
               </div>
-              <div>
-                <span>Awaiting Review</span>
-                <b>{pending}</b>
-                <small>Requires action</small>
-              </div>
-              <div>
-                <span>Approved</span>
-                <b>
-                  {applications.filter((a) => a.status === "approved").length}
-                </b>
-                <small>Applications approved</small>
-              </div>
-              <div>
-                <span>Rejected</span>
-                <b>
-                  {applications.filter((a) => a.status === "rejected").length}
-                </b>
-                <small>Applications declined</small>
-              </div>
-            </div>
+            </section>
             <div className="adminGrid">
               <section className="quick">
                 <h2>Quick actions</h2>
@@ -1165,7 +1189,7 @@ export default function Admin({ setPage }) {
                     <div className="recentApplicationInfo">
                       <b>{app.fullName || app.name || "Applicant"}</b>
                       <small>
-                        {app.email} · {app.category}
+                        {app.email} · {app.category} · {{new:"New application",renewal:"Renewal",upgrade:"Upgrade"}[app.application_type || "new"]}
                       </small>
                     </div>
                     <span
@@ -1419,7 +1443,7 @@ export default function Admin({ setPage }) {
             <div className="applicationPanelHead">
               <div>
                 <h2>Manage {tab}</h2>
-                <p>Create, edit, publish or unpublish institutional content. For leadership use structured JSON metadata; for About Page edit the headline, summary, main body and optional metadata.secondParagraph / metadata.closingStatement.</p>
+                <p>Create, edit, publish or unpublish institutional content. Changes publish to the matching public page when Published is enabled. Leadership records use metadata keys name, position, image, qualifications, experience and expertise. About Page uses one published record; metadata supports headline, introduction, vision, mission_heading, mission, objectives, history and professional_scope.</p>
               </div>
               <button
                 className="adminRefresh"
@@ -1477,6 +1501,54 @@ export default function Admin({ setPage }) {
                   }
                 />
               </label>
+              {(contentTypeForTab[tab] === "event" || contentTypeForTab[tab] === "publication") && (
+                <section className="adminMediaMetadataPanel">
+                  <div className="adminMediaMetadataIntro">
+                    <b>{contentTypeForTab[tab] === "event" ? "Event artwork & programme" : "Publication details & files"}</b>
+                    <p>{contentTypeForTab[tab] === "event" ? "Add the event flyer and event photograph/banner using a publicly accessible URL. The event agenda is managed below and appears inside the event modal." : "Classify journals, research papers, engineering books or reports and manage their access here. For paid publications, the public article body is saved as the abstract/preview only; store the full PDF in the private publication-files bucket and enter its storage path below."}</p>
+                  </div>
+                  {contentTypeForTab[tab] === "event" ? <div className="adminMediaMetadataGrid">
+                    <label>Event image / photo URL<input type="url" value={eventMetadataDraft.image_url || ""} onChange={e=>updateEventMetadata("image_url",e.target.value)} placeholder="https://…/event-photo.jpg" /></label>
+                    <label>Official flyer URL<input type="url" value={eventMetadataDraft.flyer_url || ""} onChange={e=>updateEventMetadata("flyer_url",e.target.value)} placeholder="https://…/official-event-flyer.pdf or .jpg" /></label>
+                    <label>Registration URL (optional)<input type="url" value={eventMetadataDraft.registration_url || ""} onChange={e=>updateEventMetadata("registration_url",e.target.value)} placeholder="https://…" /></label>
+                    <label>Organising institution<input value={eventMetadataDraft.organizer || ""} onChange={e=>updateEventMetadata("organizer",e.target.value)} placeholder="NI4E or official event organiser" /></label>
+                    <label>Official event information URL<input type="url" value={eventMetadataDraft.source_url || ""} onChange={e=>updateEventMetadata("source_url",e.target.value)} placeholder="https://…/official-event-details" /></label>
+                    <label>Who should attend<textarea rows={2} value={eventMetadataDraft.audience || ""} onChange={e=>updateEventMetadata("audience",e.target.value)} placeholder="Intended attendees and eligibility" /></label>
+                    <label>Event highlights<textarea rows={3} value={eventMetadataDraft.highlights || ""} onChange={e=>updateEventMetadata("highlights",e.target.value)} placeholder="Key themes, benefits, exhibitors, speakers or practical details" /></label>
+                    <label>Why attend<textarea rows={3} value={eventMetadataDraft.why_attend || ""} onChange={e=>updateEventMetadata("why_attend",e.target.value)} placeholder="Practical benefits, learning outcomes and networking value" /></label>
+                    <label>Event format<input value={eventMetadataDraft.format || ""} onChange={e=>updateEventMetadata("format",e.target.value)} placeholder="In-person, virtual or hybrid" /></label>
+                    <label>Duration<input value={eventMetadataDraft.duration || ""} onChange={e=>updateEventMetadata("duration",e.target.value)} placeholder="e.g. One day / 9:00 AM–4:00 PM" /></label>
+                    <label>Registration deadline<input value={eventMetadataDraft.registration_deadline || ""} onChange={e=>updateEventMetadata("registration_deadline",e.target.value)} placeholder="e.g. 10 November 2026" /></label>
+                    <label>Event time<input value={eventMetadataDraft.time || ""} onChange={e=>updateEventMetadata("time",e.target.value)} placeholder="e.g. 9:00 AM – 4:00 PM" /></label>
+                    <label className="adminAgendaEditor">Event agenda (one session per line)<textarea rows={6} value={(Array.isArray(eventMetadataDraft.agenda)?eventMetadataDraft.agenda:[]).map(item=>[item.time||'',item.title||'',item.description||''].filter(Boolean).join(' | ')).join('\n')} onChange={e=>{const agenda=e.target.value.split('\n').map(line=>line.trim()).filter(Boolean).map(line=>{const [time='',title='',description='']=line.split('|').map(part=>part.trim());return {time,title:title||time||'Session',description};});updateEventMetadata('agenda',agenda);}} placeholder={'09:00 AM | Registration & welcome | Arrival and opening remarks\n10:00 AM | Keynote address | Main technical theme\n11:00 AM | Technical panel | Industry case studies'} /><small>Format: time | session title | short description. These items appear in the event details modal. No separate programme file is needed.</small></label>
+                  </div> : <div className="adminMediaMetadataGrid">
+                    <label>Resource type<input value={eventMetadataDraft.type || eventMetadataDraft.category || ""} onChange={e=>updateEventMetadata("type",e.target.value)} placeholder="Journal, research paper, engineering book, report…" /><small>Use a consistent type so the public filters classify this item correctly.</small></label>
+                    <label>Publication subtype<select value={eventMetadataDraft.publication_type || ""} onChange={e=>updateEventMetadata("publication_type",e.target.value)}><option value="">Select subtype</option><option value="journal">Journal article</option><option value="research paper">Research paper</option><option value="proceedings">Conference proceedings</option><option value="book">Engineering book</option><option value="report">Technical report</option></select></label>
+                    <label>Engineering discipline<input value={eventMetadataDraft.discipline || ""} onChange={e=>updateEventMetadata("discipline",e.target.value)} placeholder="Electrical, electronics, power, renewable energy…" /></label>
+                    <label>Author / editor<input value={eventMetadataDraft.author || ""} onChange={e=>updateEventMetadata("author",e.target.value)} placeholder="Author(s) or NI4E unit" /></label>
+                    <label>Publication year<input type="number" min="1900" max="2100" value={eventMetadataDraft.year || ""} onChange={e=>updateEventMetadata("year",e.target.value ? Number(e.target.value) : "")} placeholder="2026" /></label>
+                    <label>Journal / publication name<input value={eventMetadataDraft.journal || ""} onChange={e=>updateEventMetadata("journal",e.target.value)} placeholder="Journal title or publisher" /></label>
+                    <label>Volume<input value={eventMetadataDraft.volume || ""} onChange={e=>updateEventMetadata("volume",e.target.value)} placeholder="e.g. 12" /></label>
+                    <label>Issue / edition<input value={eventMetadataDraft.issue || ""} onChange={e=>updateEventMetadata("issue",e.target.value)} placeholder="e.g. Issue 2" /></label>
+                    <label>ISSN (if applicable)<input value={eventMetadataDraft.issn || ""} onChange={e=>updateEventMetadata("issn",e.target.value)} placeholder="Journal ISSN" /></label>
+                    <label>ISBN (for books)<input value={eventMetadataDraft.isbn || ""} onChange={e=>updateEventMetadata("isbn",e.target.value)} placeholder="ISBN, if applicable" /></label>
+                    <label>Format<input value={eventMetadataDraft.format || ""} onChange={e=>updateEventMetadata("format",e.target.value)} placeholder="PDF, journal article, web page…" /></label>
+                    <label>Licence / distribution rights<input value={eventMetadataDraft.license || ""} onChange={e=>updateEventMetadata("license",e.target.value)} placeholder="Open licence, publisher permission, NI4E-owned" /><small>Record the permission basis before uploading or selling a document.</small></label>
+                    <label>Book / publisher access URL<input type="url" value={eventMetadataDraft.book_url || ""} onChange={e=>updateEventMetadata("book_url",e.target.value)} placeholder="https://… official book or publisher page" /><small>For engineering books hosted by the author or publisher. Do not upload copyrighted books without distribution rights.</small></label>
+                    <label>Cover image URL<input type="url" value={eventMetadataDraft.cover_url || ""} onChange={e=>updateEventMetadata("cover_url",e.target.value)} placeholder="https://…/cover.jpg" /></label>
+                    {!(eventMetadataDraft.is_paid === true || String(eventMetadataDraft.is_paid).toLowerCase() === "true") && <label>PDF / full-text URL<input type="url" value={eventMetadataDraft.file_url || ""} onChange={e=>updateEventMetadata("file_url",e.target.value)} placeholder="https://…/open-access-publication.pdf" /></label>}
+                    <label>DOI / ISBN / reference<input value={eventMetadataDraft.doi || eventMetadataDraft.isbn || ""} onChange={e=>updateEventMetadata("doi",e.target.value)} placeholder="DOI, ISBN or institutional reference" /></label>
+                    <label>Keywords (comma-separated)<input value={Array.isArray(eventMetadataDraft.keywords) ? eventMetadataDraft.keywords.join(", ") : eventMetadataDraft.keywords || ""} onChange={e=>updateEventMetadata("keywords",e.target.value)} placeholder="Energy, power systems, safety" /></label>
+                    <label className="check adminPaidPublicationToggle"><input type="checkbox" checked={eventMetadataDraft.is_paid === true || String(eventMetadataDraft.is_paid).toLowerCase() === "true"} onChange={e=>updateEventMetadata("is_paid",e.target.checked)} /> This publication requires payment</label>
+                    {(eventMetadataDraft.is_paid === true || String(eventMetadataDraft.is_paid).toLowerCase() === "true") && <>
+                      <label>Publication price (NGN)<input type="number" min="1" step="0.01" value={eventMetadataDraft.price_kobo ? (Number(eventMetadataDraft.price_kobo)/100).toString() : ""} onChange={e=>{const n=Number(e.target.value);updateEventMetadata("price_kobo",e.target.value.trim()===""?null:(Number.isFinite(n)&&n>=0?Math.round(n*100):null));}} placeholder="e.g. 2500" /></label>
+                      <label className="adminPrivatePdfUpload">Upload full-text PDF (private storage)<input type="file" accept="application/pdf,.pdf" disabled={publicationUploadBusy} onChange={e=>{const file=e.target.files?.[0];if(file)uploadPaidPublicationFile(file);e.target.value="";}} /><small>PDF only, maximum 50 MB. The file is stored in a private bucket and is only delivered to verified purchasers using a short-lived link.</small>{publicationUploadBusy&&<small role="status">Uploading securely…</small>}{publicationUploadMessage&&<small role="status">{publicationUploadMessage}</small>}</label>
+                      <label>Private PDF storage path<input value={eventMetadataDraft.private_file_path || ""} onChange={e=>updateEventMetadata("private_file_path",e.target.value.trim())} placeholder="Filled automatically after upload" /><small>Use the upload control above; avoid public URLs for paid full text.</small></label>
+                      <label>Free preview / abstract<textarea rows={3} value={eventMetadataDraft.preview || ""} onChange={e=>updateEventMetadata("preview",e.target.value)} placeholder="Abstract or preview shown before purchase" /></label>
+                    </>}
+                  </div>}
+                </section>
+              )}
               {contentTypeForTab[tab] === "event" && (
                 <fieldset className="adminEventPaymentSettings">
                   <legend>Registration & ticket payment</legend>
@@ -1704,6 +1776,8 @@ export default function Admin({ setPage }) {
                 </table>
               </div>
             )}
+            <div className="applicationPanelHead eventPaymentsHead"><div><h2>Publication purchases</h2><p>Internal publication sales, buyer accounts and verified Paystack transactions.</p></div><span className="muted">{publicationPurchases.filter(p => p.status === "success").length} verified purchases</span></div>
+            {contentLoading ? <div className="adminEmpty">Loading publication purchases…</div> : publicationPurchases.length === 0 ? <div className="adminEmpty"><BookOpen size={24}/><b>No publication purchases yet</b><span>Paid publication purchases will appear here after the commerce migration is applied.</span></div> : <div className="applicationTableWrap"><table className="applicationTable"><thead><tr><th>Date</th><th>Publication / Buyer</th><th>Amount</th><th>Reference</th><th>Status</th></tr></thead><tbody>{publicationPurchases.map(purchase => <tr key={purchase.id}><td>{new Date(purchase.created_at).toLocaleString()}</td><td><b>{purchase.publication_title}</b><small>Account: {purchase.user_id}</small></td><td>₦{(Number(purchase.amount_kobo||0)/100).toLocaleString("en-NG",{minimumFractionDigits:2})}</td><td>{purchase.provider_reference}</td><td><span className={`applicationStatus ${purchase.status === "success" ? "approved" : "pending"}`}>{purchase.status}</span></td></tr>)}</tbody></table></div>}
             <div className="applicationPanelHead eventPaymentsHead"><div><h2>Event ticket payments</h2><p>Paid event registrations and Paystack verification results, connected to Events and Event Registrations.</p></div><span className="muted">{eventPayments.filter(p => p.status === "success").length} verified transactions</span></div>
             {contentLoading ? <div className="adminEmpty">Loading event payments…</div> : eventPayments.length === 0 ? <div className="adminEmpty"><CreditCard size={24}/><b>No event payment records yet</b><span>Ticket payments appear here after a paid event is configured and checkout is started.</span></div> : <div className="applicationTableWrap"><table className="applicationTable"><thead><tr><th>Date</th><th>Event / Attendee</th><th>Amount</th><th>Reference</th><th>Status</th></tr></thead><tbody>{eventPayments.map(payment => <tr key={payment.id}><td>{new Date(payment.created_at).toLocaleString()}</td><td><b>{payment.event_title}</b><small>{payment.attendee_email}</small><small>Registration: {payment.registration_id}</small></td><td>{payment.amount_kobo == null ? "—" : `₦${(payment.amount_kobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`}</td><td>{payment.provider_reference}</td><td><span className={`applicationStatus ${payment.status === "success" ? "approved" : "pending"}`}>{payment.status}</span></td></tr>)}</tbody></table></div>}
           </section>
@@ -1940,6 +2014,20 @@ export default function Admin({ setPage }) {
           </section>
         )}
       </main>
+      {confirmingApproval && (
+        <div className="applicationModalBackdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setConfirmingApproval(null)}>
+          <section className="applicationConfirmDialog" role="dialog" aria-modal="true" aria-labelledby="approveRequestTitle">
+            <div className="applicationConfirmIcon"><CheckCircle2 size={25}/></div>
+            <span className="kicker">CONFIRM ADMINISTRATIVE DECISION</span>
+            {error && <div className="adminAlert" role="alert">{error}</div>}
+            <h2 id="approveRequestTitle">{confirmingApproval.application_type === "upgrade" ? "Approve the initial upgrade review?" : `Approve this ${confirmingApproval.application_type === "renewal" ? "renewal" : "membership application"}?`}</h2>
+            <p>You are approving <b>{confirmingApproval.fullName || confirmingApproval.name || "this applicant"}</b> for <b>{confirmingApproval.category || "the requested membership category"}</b>.</p>
+            <div className="applicationConfirmInfo"><span>Request type</span><b>{{new:"New application",renewal:"Membership renewal",upgrade:"Membership upgrade"}[confirmingApproval.application_type || "new"]}</b>{confirmingApproval.previous_category && <><span>Previous category</span><b>{confirmingApproval.previous_category}</b></>}</div>
+            <p className="muted">{confirmingApproval.application_type === "upgrade" ? "This is initial approval only. The member must upload the required evidence, the committee must verify it, and NI4E must record final approval before payment becomes available." : "This records approval for payment. It does not activate membership or confirm payment. Payment and activation remain subject to the existing verified payment process."}</p>
+            <div className="applicationModalActions"><button className="outlineDark" onClick={() => setConfirmingApproval(null)} disabled={!!updating}>Go back</button><button className="gold" disabled={!!updating} onClick={() => changeStatus(confirmingApproval, "approved")}>{updating === confirmingApproval.id ? "Saving…" : confirmingApproval.application_type === "upgrade" ? "Confirm initial approval" : "Confirm approval"}</button></div>
+          </section>
+        </div>
+      )}
       {selected && (
         <div
           className="applicationModalBackdrop"
@@ -1961,7 +2049,8 @@ export default function Admin({ setPage }) {
             >
               ×
             </button>
-            <span className="kicker">MEMBERSHIP APPLICATION</span>
+            <span className="kicker">MEMBERSHIP REQUEST · {{new:"NEW APPLICATION",renewal:"RENEWAL",upgrade:"UPGRADE"}[selected.application_type || "new"]}</span>
+            {error && <div className="adminAlert" role="alert">{error}</div>}
             <h2 id="applicationModalTitle">
               {selected.fullName || selected.name || "Applicant"}
             </h2>
@@ -1970,7 +2059,11 @@ export default function Admin({ setPage }) {
               {[
                 ["Email", selected.email],
                 ["Phone", selected.phone],
-                ["Category", selected.category],
+                ["Request type", ({new:"New application",renewal:"Membership renewal",upgrade:"Membership upgrade"})[selected.application_type || "new"]],
+                ["Membership number", selected.membership_number],
+                ["Current membership expiry", selected.membership_expires_at ? new Date(selected.membership_expires_at).toLocaleDateString() : null],
+                ["Current / requested category", selected.category],
+                ["Previous category", selected.previous_category],
                 ["Date of birth", selected.dateOfBirth],
                 ["Nationality", selected.nationality],
                 ["State of residence", selected.stateOfResidence],
@@ -2046,53 +2139,24 @@ export default function Admin({ setPage }) {
                 </div>
               )}
             </section>
+            {decisionIntent === "rejected" && <div className="applicationDecisionNotice"><b>Declining this request</b><span>Enter a clear reason below. The decision will be saved to the request and reflected in the member portal.</span></div>}
+            {selected.application_type === "upgrade" && <div className="applicationDecisionNotice"><b>Controlled membership upgrade</b><span>Initial approval opens document submission. The member must submit evidence, the committee must verify it, and only a separate final approval releases payment. The existing membership grade and number remain unchanged until verified payment.</span></div>}
+            {selected.application_type === "renewal" && <div className="applicationDecisionNotice"><b>Annual membership renewal</b><span>Review the member's current grade, membership number and expiry date. Approval releases the configured annual renewal fee; successful payment extends validity without changing the membership number or grade.</span></div>}
             <label className="reviewNotesField">
               Review notes / reason
-              <textarea
-                rows={3}
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                placeholder="Record review notes. Required when requesting corrections or rejecting."
-              />
+              <textarea rows={3} value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Record the decision, reason or instructions. Required for corrections and rejection." />
             </label>
             <div className="applicationModalActions">
-              <button
-                className="outlineDark"
-                onClick={() => {
-                  setSelected(null);
-                  setReviewNotes("");
-                }}
-              >
-                Close
-              </button>
-              <button
-                className="adminRefresh"
-                disabled={!!updating}
-                onClick={() => changeStatus(selected, "under_review")}
-              >
-                {updating === selected.id ? "Saving…" : "Mark reviewing"}
-              </button>
-              <button
-                className="adminRefresh"
-                disabled={!!updating}
-                onClick={() => changeStatus(selected, "needs_information")}
-              >
-                Request corrections
-              </button>
-              <button
-                className="gold"
-                disabled={!!updating}
-                onClick={() => changeStatus(selected, "approved")}
-              >
-                Approve for payment
-              </button>
-              <button
-                className="dangerButton"
-                disabled={!!updating}
-                onClick={() => changeStatus(selected, "rejected")}
-              >
-                Reject application
-              </button>
+              <button className="outlineDark" onClick={() => { setSelected(null); setDecisionIntent(""); setReviewNotes(""); }}>Close</button>
+              <button className="adminRefresh" disabled={!!updating || ["approved", "approved_for_payment", "rejected", "active"].includes(selected.status) || (selected.application_type === "upgrade" && !["pending", "under_review"].includes(selected.status))} onClick={() => changeStatus(selected, "under_review")}>Mark reviewing</button>
+              <button className="adminRefresh" disabled={!!updating || ["rejected", "active"].includes(selected.status)} onClick={() => changeStatus(selected, "needs_information")}>Request corrections</button>
+              {selected.application_type === "upgrade" ? <>
+                { (["pending", "under_review"].includes(selected.status) || (selected.status === "needs_information" && !selected.documents_submitted_at)) && <button className="gold" disabled={!!updating} onClick={() => requestApproval(selected)}>Approve initial review</button> }
+                { selected.status === "documents_submitted" && <button className="gold" disabled={!!updating} onClick={() => changeStatus(selected, "committee_review")}>Send to committee</button> }
+                { selected.status === "committee_review" && <button className="gold" disabled={!!updating} onClick={() => changeStatus(selected, "committee_verified")}>Verify documents</button> }
+                { selected.status === "committee_verified" && <button className="gold" disabled={!!updating} onClick={() => changeStatus(selected, "approved_for_payment")}>Final approval · release payment</button> }
+              </> : <button className="gold" disabled={!!updating || selected.status === "approved" || selected.status === "rejected" || selected.status === "active"} onClick={() => requestApproval(selected)}>Approve for payment</button>}
+              <button className="dangerButton" disabled={!!updating || selected.status === "rejected" || selected.status === "active"} onClick={() => changeStatus(selected, "rejected")}>Reject request</button>
             </div>
           </section>
         </div>

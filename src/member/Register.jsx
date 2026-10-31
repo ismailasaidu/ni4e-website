@@ -30,7 +30,7 @@ const STEP_FIELDS = {
     {key:'graduationClass',label:'Class of degree / result (if available)',optional:true,categories:['Graduate Member']},
     {key:'associateBasis',label:'Basis for Associate membership application',type:'select',options:['Relevant technical qualification','Technical / industry experience','Academic or research contribution','Other'],categories:['Associate Member']},
     {key:'associateBasisDetails',label:'Explain your relevant technical background and why you qualify for Associate membership',type:'textarea',categories:['Associate Member']},
-    {key:'corporateRegistrationBody',label:'Professional registration body',type:'select',options:['COREN','NSE','NIEEE','Other','Not applicable / not registered'],categories:['Corporate Member']},
+    {key:'corporateRegistrationBody',label:'Professional registration body',type:'select',options:['COREN','NSE','NI4E membership','Other','Not applicable / not registered'],categories:['Corporate Member']},
     {key:'corporateRegistrationStatus',label:'Professional registration status',type:'select',options:['Registered','In progress','Not professionally registered'],categories:['Corporate Member']},
     {key:'corporateMembershipEvidence',label:'Professional membership / registration number (if applicable)',optional:true,categories:['Corporate Member']}
     ,{key:'corporateRegistrationOther',label:'Specify professional registration body',optional:true,categories:['Corporate Member'],showWhen:{key:'corporateRegistrationBody',value:'Other'}}

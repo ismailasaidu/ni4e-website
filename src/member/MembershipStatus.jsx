@@ -27,10 +27,9 @@ export default function MembershipStatus({ setPage }) {
         .order('submitted_at', { ascending: false })
         .limit(50);
       if (queryError) throw queryError;
-      const found = (data || []).find(row =>
-        !String(row.category || '').toLowerCase().includes('fellowship') &&
-        !['renewal', 'upgrade'].includes(String(row.application_type || '').toLowerCase())
-      );
+      const found = (data || []).find(row => !String(row.category || '').toLowerCase().includes('fellowship'));
+      // Keep renewal and upgrade requests in the member's application history.
+      // The dashboard and member workspace display each request type separately.
       const [{ data: profileData }, { data: paymentData }] = await Promise.all([
         supabase.from('profiles').select('full_name,email,phone,membership_category,membership_status,membership_number,membership_activated_at,membership_expires_at').eq('id', user.id).maybeSingle(),
         supabase.from('membership_payments').select('id,application_id,status,paid_at,amount_kobo,category,provider_reference').eq('user_id', user.id).eq('status', 'success').order('created_at', { ascending: false }).limit(10)
@@ -47,8 +46,10 @@ export default function MembershipStatus({ setPage }) {
   useEffect(() => { load(); }, [user?.id]);
 
   const payload = application?.application_data && typeof application.application_data === 'object' ? application.application_data : {};
-  const status = String((String(memberProfile?.membership_status || '').toLowerCase() === 'active' || String(application?.status || '').toLowerCase() === 'active') ? 'active' : (application?.status || memberProfile?.membership_status || 'pending')).toLowerCase();
-  const statusLabel = ({ pending: 'Awaiting review', under_review: 'Under review', needs_information: 'Corrections requested', approved: 'Approved — payment next', payment_pending: 'Payment pending', active: 'Membership active', rejected: 'Application rejected' })[status] || pretty(status);
+  const hasLifecycleRequest = ['upgrade','renewal'].includes(String(application?.application_type || '').toLowerCase());
+  const profileActive = String(memberProfile?.membership_status || '').toLowerCase() === 'active';
+  const status = String((profileActive && !hasLifecycleRequest || String(application?.status || '').toLowerCase() === 'active') ? 'active' : (application?.status || memberProfile?.membership_status || 'pending')).toLowerCase();
+  const statusLabel = ({ pending: 'Awaiting review', under_review: 'Under review', needs_information: 'Corrections requested', approved: application?.application_type === 'upgrade' ? 'Initial approval — documents required' : 'Approved — payment next', documents_submitted: 'Documents submitted', committee_review: 'Committee verification', committee_verified: 'Committee verified', approved_for_payment: 'Final approval — payment due', payment_pending: 'Payment pending', active: 'Membership active', rejected: 'Application not approved' })[status] || pretty(status);
   const displayFields = Object.entries(payload).filter(([key, value]) => {
     if (value === null || value === undefined || value === '' || typeof value === 'object') return false;
     return !/password|token|secret|signed.?url|base64/i.test(key);
@@ -74,7 +75,7 @@ export default function MembershipStatus({ setPage }) {
           <div className="membershipServicesIcon"><ClipboardCheck size={27}/></div>
           <span className="tag">{memberProfile?.membership_category || application?.category || 'Membership application'}</span>
           <h2>{statusLabel}</h2>
-          <p>{status === 'approved' ? 'Your application has been approved. Continue to the payment page to check the configured membership fee and available payment options.' : application?.review_notes || 'Your application has been recorded. This page will show status updates and any reviewer notes.'}</p>
+          <p>{status === 'approved' && application?.application_type === 'upgrade' ? 'Your upgrade has passed initial review. Submit the supporting documents inside your member portal. Committee verification and final approval are required before payment.' : status === 'approved' ? 'Your application has been approved. Continue to the payment page to check the configured fee and available payment options.' : status === 'approved_for_payment' ? 'Your upgrade has received final approval. Continue to the payment step from your member portal.' : application?.review_notes || 'Your application has been recorded. This page will show status updates and any reviewer notes.'}</p>
         </> }
         {application && status !== 'active' && <div className="membershipFeePanel"><span>Application reference</span><b>NI4E-{String(application.id || '').replaceAll('-', '').slice(0, 8).toUpperCase()}</b><small>Submitted: {dateText(application.submitted_at)}</small></div>}
         {status !== 'active' && <><div className="membershipRequirementColumns">
@@ -83,9 +84,12 @@ export default function MembershipStatus({ setPage }) {
         </div>
         {application && displayFields.length > 0 && status !== 'active' && <div className="membershipRequirementBlock"><h3><FileText size={18}/> Submitted details</h3><dl className="membershipSubmittedDetails">{displayFields.map(([key, value]) => <div key={key}><dt>{humanLabel(key)}</dt><dd>{String(value)}</dd></div>)}</dl></div>}</>}
         <div className="formActions">
-          {status === 'approved' && <button className="gold" onClick={() => setPage('payment')}>Continue to payment</button>}
+          {((status === 'approved' && application?.application_type !== 'upgrade') || (status === 'approved_for_payment' && application?.application_type === 'upgrade')) && <button className="gold" onClick={() => setPage(application?.application_type === 'upgrade' ? 'dashboard' : 'payment')}>{application?.application_type === 'upgrade' ? 'Open member portal to pay' : 'Continue to payment'}</button>}
+          {status === 'approved' && application?.application_type === 'upgrade' && <button className="gold" onClick={() => setPage('dashboard')}>Open member portal to submit documents</button>}
+          {['documents_submitted','committee_review','committee_verified'].includes(status) && <button className="gold" onClick={() => setPage('dashboard')}>Track upgrade in member portal</button>}
           {status === 'active' && <button className="gold ni4eMemberCardPortalButton" onClick={() => setPage('dashboard')}>View Membership Portal <span aria-hidden="true">→</span></button>}
-          {status === 'needs_information' && <button className="gold" onClick={() => { try { sessionStorage.setItem('ni4e_membership_category', application.category || ''); } catch {} setPage('register'); }}>Update application</button>}
+          {status === 'needs_information' && <button className="gold" onClick={() => setPage(hasLifecycleRequest ? 'dashboard' : 'register')}>{hasLifecycleRequest ? 'Respond in member portal' : 'Update application'}</button>}
+          {status === 'rejected' && application?.application_type === 'upgrade' && <p>{application.reapplication_eligible_at ? `You may apply again from ${new Date(application.reapplication_eligible_at).toLocaleDateString('en-NG')}.` : 'Contact the Secretariat to confirm the reapplication date.'}</p>}
           {status === 'rejected' && <p>Review the notes above for the decision and contact the Secretariat if you need clarification about the permitted next step.</p>}
           <button className="outlineDark" onClick={load}><RefreshCw size={16}/> Refresh status</button>
         </div>

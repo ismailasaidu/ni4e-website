@@ -1,74 +1,76 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase, supabaseConfigured } from '../firebase/config';
-import { ArrowRight, Award, BookOpen, BriefcaseBusiness, CheckCircle2, Compass, GraduationCap, Network, ShieldCheck, Users, Zap, Globe2, Lightbulb, Handshake, Target } from 'lucide-react';
+import { ArrowRight, BookOpen, GraduationCap, Lightbulb, Network, ShieldCheck, Users, Zap, Compass } from 'lucide-react';
 import { PageHero } from '../components';
 import useReveal from '../hooks/useReveal';
 
+const history = [
+  { year: 'Mid-1980s', title: 'The Electrical Division takes shape', text: 'Electrical engineers organised within the Nigerian Society of Engineers to build a specialist professional platform. Historical accounts place the Division’s formation in the mid-1980s and identify Engr. Dr. Olusegun O. Ajayi as a pioneer chairman.' },
+  { year: '2006–2007', title: 'A distinct institutional identity', text: 'Members voted at the Electrical Division’s Annual General Meeting on 12 October 2006 to adopt the name Nigerian Institution of Electrical and Electronic Engineers. The NSE Council approved the change in January 2007.' },
+  { year: '2012', title: 'Technical exchange through ICEPT', text: 'The 8th International Conference and Exhibition on Power and Telecommunications was documented in October 2012, reflecting the Institution’s role in technical discussion across power and communications.' },
+  { year: '2013', title: 'Chapter and professional activities', text: 'NSE newsletter records documented the Bayelsa Chapter inauguration, the Distinguished Electrical and Electronics Engineer Annual Lecture and a national retreat in Yenagoa.' },
+  { year: '2016', title: 'Power and communications in focus', text: 'The 12th ICEPT was announced for Jos, with a programme addressing power, telecommunications, asset management, maintenance, financing and infrastructure development.' },
+  { year: '2022', title: 'NSE clarification and governance milestone', text: 'On 6 December 2022, the NSE reaffirmed that it recognises the Nigerian Institution of Electrical and Electronics Engineers as a professional Division and distinguished it from a similarly named separate organisation. The clarification also recorded a caretaker committee appointed to pilot the Institution’s affairs.' },
+  { year: '2026', title: 'A new national leadership chapter', text: 'The supplied inauguration brochure records the inauguration of Engr. Alkali Abba Tijjani as the 23rd National Chairman on 13 June 2026, alongside the National Executive Council.' },
+];
+
+const objectives = [
+  ['01', 'Advance professional practice', 'Promote technical competence, ethical conduct and continuous improvement across electrical and electronics engineering.'],
+  ['02', 'Empower engineers', 'Support professional learning, mentoring, knowledge exchange and capacity development for practising engineers, graduates and students.'],
+  ['03', 'Promote innovation and research', 'Encourage engineering research, practical innovation and the adoption of relevant emerging technologies.'],
+  ['04', 'Strengthen technical collaboration', 'Connect members, chapters, academia, industry, government and other professional bodies around shared engineering priorities.'],
+  ['05', 'Contribute to national development', 'Use engineering knowledge to inform infrastructure, energy security, industrial growth and the reliable systems communities depend on.'],
+  ['06', 'Uphold professional ethics', 'Encourage safe, responsible and standards-conscious engineering decisions that protect people and public interest.'],
+];
+
+const disciplines = [
+  [Zap, 'Power & energy', 'Generation, transmission, distribution, power-system reliability, energy efficiency and renewable energy.'],
+  [Network, 'Telecommunications & ICT', 'Communications networks, information technology, digital infrastructure and connected systems.'],
+  [Lightbulb, 'Electronics & manufacturing', 'Electronic systems, embedded technologies, electronic manufacturing and applied innovation.'],
+  [Compass, 'Control & instrumentation', 'Industrial automation, measurement, process control, instrumentation and systems integration.'],
+  [ShieldCheck, 'Installations & safety', 'Sound electrical installations, protection, standards awareness, risk management and safe practice.'],
+  [GraduationCap, 'Research & development', 'Technical education, professional development, applied research and knowledge transfer.'],
+];
+
+const councilHighlights = [
+  ['Engr. Alkali Abba Tijjani', 'National Chairman', '/images/executive-council/alkali-abba-tijjani.jpg'],
+  ['Engr. Oloekunle Ezekiel Olusegun', 'Deputy National Chairman', '/images/executive-council/oloekunle-ezekiel-olusegun.jpg'],
+  ['Engr. Dr. Hassan Natala', 'National Vice Chairman, Power', '/images/executive-council/hassan-natala.jpg'],
+  ['Engr. Edima Ekanem', 'National Executive Council Member', '/images/executive-council/edima-ekanem.jpg'],
+];
+
 export default function About({ setPage }) {
   useReveal();
-  const carouselRef = useRef(null);
-  const [aboutContent, setAboutContent] = useState(null);
-  useEffect(() => {
-    if (!supabaseConfigured || !supabase) return;
-    let active = true;
-    supabase.from('site_content').select('title,summary,body,metadata').eq('content_type','institutional_page').eq('slug','about').eq('published',true).maybeSingle().then(({data}) => { if (active && data) setAboutContent(data); });
-    return () => { active = false; };
-  }, []);
-  useEffect(() => {
-    const el = carouselRef.current; if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let paused = false;
-    const timer = window.setInterval(() => { if (paused || !el.isConnected) return; const first = el.querySelector('article'); if (!first) return; const step = first.getBoundingClientRect().width + 14; if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) el.scrollTo({left:0,behavior:'smooth'}); else el.scrollBy({left:step,behavior:'smooth'}); }, 4200);
-    const pause = () => { paused = true; }; const resume = () => { paused = false; };
-    el.addEventListener('mouseenter',pause); el.addEventListener('mouseleave',resume); el.addEventListener('focusin',pause); el.addEventListener('focusout',resume);
-    return () => { clearInterval(timer); el.removeEventListener('mouseenter',pause); el.removeEventListener('mouseleave',resume); el.removeEventListener('focusin',pause); el.removeEventListener('focusout',resume); };
-  }, []);
-  const focus = [
-    [Zap, 'Energy systems', 'Generation, transmission, distribution, power-system reliability, energy efficiency and emerging energy technologies.'],
-    [ShieldCheck, 'Electrical engineering', 'Safe and dependable engineering practice, protection, installations, standards awareness and technical excellence.'],
-    [Network, 'Electronics & digital systems', 'Electronics, instrumentation, automation, control, communications and digital technologies supporting modern infrastructure.'],
-    [GraduationCap, 'Professional development', 'Technical learning, knowledge exchange and opportunities for students, graduates and practising professionals.']
-  ];
-  const pathways = [
-    [Users, 'Membership', 'Understand the membership journey, prepare an application and access member services.', 'membership'],
-    [Award, 'Events & CPD', 'Explore conferences, technical forums, workshops and continuing professional development.', 'events'],
-    [BookOpen, 'Knowledge library', 'Find publications, technical resources, reports and institutional knowledge.', 'publications'],
-    [Network, 'Communities', 'Explore chapters, technical areas, committees and professional collaboration.', 'chapters']
-  ];
-  const pillars = [
-    [Target, 'Professional standards', 'Encourage responsible, safe and ethical engineering practice and a culture of continuous improvement.'],
-    [Lightbulb, 'Technical knowledge', 'Create routes for professionals to share experience, discuss challenges and learn from technical work.'],
-    [Handshake, 'Collaboration', 'Connect practitioners, educators, researchers, industry and emerging engineers around shared priorities.'],
-    [Globe2, 'Public value', 'Make professional knowledge and engineering dialogue more accessible to the wider community.']
-  ];
-  const audiences = [
-    ['Practising engineers', 'Technical resources, professional activities and opportunities to contribute experience.'],
-    ['Students & graduates', 'A starting point for learning about the profession, communities and development opportunities.'],
-    ['Industry & institutions', 'A channel to discover relevant activities and explore technical collaboration.'],
-    ['Researchers & educators', 'Routes to share knowledge, publications, events and engineering perspectives.']
-  ];
+  const [managed, setManaged] = useState(null);
+  useEffect(() => { let active = true; const load = async () => { if (!supabaseConfigured || !supabase) return; const { data, error } = await supabase.from('site_content').select('*').eq('content_type','institutional_page').eq('published',true).order('updated_at',{ascending:false}).limit(1); if (!error && active && data?.[0]) setManaged(data[0]); }; load(); return () => { active = false; }; }, []);
+  const meta = managed?.metadata || {};
+  const historyItems = Array.isArray(meta.history) && meta.history.length ? meta.history : history;
+  const objectiveItems = Array.isArray(meta.objectives) && meta.objectives.length ? meta.objectives : objectives;
+  const scopeItems = Array.isArray(meta.professional_scope) && meta.professional_scope.length ? meta.professional_scope : disciplines;
   return <>
-    <PageHero title="About NI4E" crumb="About" desc="A professional platform for advancing energy, electrical and electronics engineering knowledge, practice and collaboration in Nigeria." />
-    <section className="section aboutPageRedesign">
-      <div className="aboutLeadGrid"><div><span className="kicker">WHO WE ARE</span><h2>{aboutContent?.metadata?.headline || aboutContent?.title || 'Engineering knowledge. Professional community. National progress.'}</h2><p className="aboutLeadText">{aboutContent?.summary || 'NI4E brings together professional interests across energy, electrical and electronics engineering.'}</p></div><div><p>{aboutContent?.body || 'NI4E provides a professional meeting point for people working across energy, electrical engineering and electronics. Its work connects technical knowledge with professional responsibility, collaboration and the practical needs of modern infrastructure.'}</p><p>{aboutContent?.metadata?.secondParagraph || 'The Institution’s work spans professional development, knowledge exchange, responsible engineering practice and stronger connections between practitioners, educators, researchers, industry and emerging professionals.'}</p><div className="aboutLeadActions"><button className="darkbtn" onClick={()=>setPage?.('membership')}>Explore membership <ArrowRight size={16}/></button><button className="textbtn" onClick={()=>setPage?.('contact')}>Contact the Institution</button></div></div></div>
-      <div className="aboutImageShowcase" aria-label="Engineering disciplines and professional community">
-        <div className="aboutImageFeature"><img src="https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1500&q=90" alt="High-voltage transmission infrastructure"/><div><span>POWER & ENERGY</span><h3>Reliable systems for everyday life</h3></div></div>
-        <div className="aboutImageSide"><article><img src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=85" alt="Electronics and circuit board engineering"/><div><span>ELECTRONICS & DIGITAL SYSTEMS</span><h3>Technology that connects</h3></div></article><article><img src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=900&q=85" alt="Engineer at work in a technical environment"/><div><span>PROFESSIONAL PRACTICE</span><h3>Knowledge applied responsibly</h3></div></article></div>
-      </div>
-      <div className="aboutImageCarousel" aria-label="Engineering in practice gallery"><div className="aboutImageCarouselTrack" ref={carouselRef}>{[
-        ['https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=900&q=85','Renewable energy','Solar generation, storage and reliable integration.'],
-        ['https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=85','Efficient buildings','Engineering decisions that improve performance.'],
-        ['https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=900&q=85','Professional collaboration','People and ideas working across disciplines.'],
-        ['https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=900&q=85','Avionics and space','Engineering systems beyond the ground.']
-      ].map(([src,title,desc])=><article key={title}><img src={src} alt={title} loading="lazy"/><div><h3>{title}</h3><p>{desc}</p></div></article>)}</div><p className="aboutCarouselHint">Swipe to explore engineering disciplines <span>→</span></p></div>
-      <div className="aboutPurposeBand"><div><span className="kicker">OUR ROLE</span><h3>Connect the profession to the knowledge and services it needs.</h3></div><p>Support professional connection, share technical knowledge, promote responsible engineering practice and make institutional activities easier to discover and access.</p></div>
-      <div className="aboutFocusHead"><span className="kicker">AREAS OF FOCUS</span><h2>Engineering disciplines shaping essential systems</h2><p>The energy, electrical and electronics disciplines underpin the systems people and businesses depend on every day.</p></div>
-      <div className="aboutFocusGrid">{focus.map(([Icon,title,desc],i)=><article className="aboutFocusCard" key={title}><span className="aboutFocusNumber">0{i+1}</span><Icon size={27}/><h3>{title}</h3><p>{desc}</p></article>)}</div>
-      <section className="aboutPillars"><div className="aboutFocusHead"><span className="kicker">WHAT THIS PLATFORM SUPPORTS</span><h2>From professional knowledge to practical contribution</h2><p>We connect professional knowledge with responsible practice, technical collaboration and the advancement of engineering capability.</p></div><div className="aboutPillarGrid">{pillars.map(([Icon,title,desc])=><article key={title}><span><Icon size={23}/></span><h3>{title}</h3><p>{desc}</p></article>)}</div></section>
-      <section className="aboutAudience"><div className="aboutAudienceIntro"><span className="kicker">WHO THE WEBSITE SERVES</span><h2>Useful to the whole engineering community</h2><p>Different visitors arrive with different needs. The site should help each person find a relevant next step without having to know the organisation's internal structure first.</p></div><div className="aboutAudienceList">{audiences.map(([title,desc],i)=><article key={title}><span>0{i+1}</span><div><h3>{title}</h3><p>{desc}</p></div><ArrowRight size={18}/></article>)}</div></section>
-      <div className="aboutPrinciples"><div><span className="kicker">HOW TO USE THIS WEBSITE</span><h2>A clear path through the professional journey.</h2><p className="aboutSectionIntro">Start with the information you need, then move into the relevant service or community.</p></div><div className="aboutPrincipleList"><p><CheckCircle2/> <span><b>Find trusted information</b><small>Institutional pages, approved leadership, recognised chapters and governance information.</small></span></p><p><CheckCircle2/> <span><b>Participate in activities</b><small>Membership pathways, event registration and professional-development opportunities.</small></span></p><p><CheckCircle2/> <span><b>Learn and contribute</b><small>Technical resources, publications, projects and knowledge-sharing activities.</small></span></p><p><CheckCircle2/> <span><b>Stay connected</b><small>News, announcements, contact channels and updates from the Institution.</small></span></p></div></div>
-      <div className="aboutPathways"><div className="aboutFocusHead"><span className="kicker">EXPLORE NI4E</span><h2>Choose your next step</h2></div><div className="aboutPathwayGrid">{pathways.map(([Icon,title,desc,page])=><button key={title} className="aboutPathway" onClick={()=>setPage?.(page)}><Icon size={24}/><b>{title}</b><span>{desc}</span><ArrowRight size={17}/></button>)}</div></div>
-      <div className="aboutProcess"><div><span className="kicker">A SIMPLE VISITOR JOURNEY</span><h2>Discover. Participate. Contribute.</h2></div><div className="aboutProcessSteps"><article><span>01</span><b>Discover</b><p>Learn about the Institution, its activities and the professional communities represented.</p></article><article><span>02</span><b>Participate</b><p>Explore membership, register for published events or find technical learning resources.</p></article><article><span>03</span><b>Contribute</b><p>Share knowledge, take part in activities and contact the Institution about collaboration.</p></article></div></div>
-      <div className="aboutApprovalNote"><Compass size={19}/><div><b>Engineering that serves people and infrastructure</b><p>{aboutContent?.metadata?.closingStatement || 'Reliable energy systems, safe electrical installations and dependable electronics are central to economic activity and everyday life. NI4E’s professional community supports the knowledge, judgement and collaboration needed to deliver these systems responsibly.'}</p></div></div>
-    </section>
+    <PageHero title="About NI4E" crumb="About" desc="The professional Division of the Nigerian Society of Engineers advancing electrical and electronics engineering practice in Nigeria." />
+    <main className="section aboutPageRedesign aboutInstitutionalPage">
+      <section className="aboutInstitutionalLead">
+        <div className="aboutInstitutionalCopy"><span className="kicker">WHO WE ARE</span><h2>{managed?.title || meta.headline || "Engineering expertise for a technologically powered Nigeria."}</h2><p className="aboutLeadText">{meta.introduction || "The Nigerian Institution of Electrical and Electronics Engineers (NI4E) is recognised by the Nigerian Society of Engineers (NSE) as a professional Division of the Society."}</p><p>{managed?.body || meta.second_paragraph || "It brings together the professional interests of electrical and electronics engineering practitioners across power, energy, telecommunications, electronics, instrumentation, control, automation and emerging technologies. Its purpose is to strengthen professional practice, technical knowledge and engineering’s contribution to national development."}</p><div className="aboutLeadActions"><button className="darkbtn" onClick={() => setPage?.('membership')}>Explore membership <ArrowRight size={16}/></button><button className="textbtn" onClick={() => setPage?.('contact')}>Contact the Institution</button></div></div>
+        <aside className="aboutChairmanFeature"><div className="aboutChairmanImage"><img src="/images/executive-council/alkali-abba-tijjani.jpg" alt="Engr. Alkali Abba Tijjani, National Chairman"/></div><span className="kicker">NATIONAL LEADERSHIP · 2026</span><h3>Engr. Alkali Abba Tijjani</h3><p>23rd National Chairman</p><span className="aboutFeatureRule"/><p className="aboutChairmanQuote">“Professionalism, excellence, innovation and service to national development.”</p><button className="textbtn" onClick={() => setPage?.('leadership')}>Meet the National Executive Council <ArrowRight size={15}/></button></aside>
+      </section>
+
+      <section className="aboutVisionMission" aria-label="Vision and mission">
+        <article className="aboutVisionCard"><span className="kicker">OUR VISION</span><h2>{meta.vision || "To be Africa’s leading professional institution for Electrical and Electronics Engineering, driving innovation, excellence and sustainable development for a technologically powered Nigeria."}</h2></article>
+        <article className="aboutMissionCard"><span className="kicker">OUR MISSION</span><h2>{meta.mission_heading || "Advance the practice. Empower professionals. Enable national progress."}</h2><p>{meta.mission || "To advance the practice of Electrical and Electronics Engineering in Nigeria by empowering professionals, promoting innovation and research, upholding the highest ethical standards, and influencing policies that accelerate national infrastructure, energy security and industrial growth."}</p></article>
+      </section>
+
+      <section className="aboutInstitutionalObjectives" aria-labelledby="about-objectives-title"><div className="aboutSectionHeading"><span className="kicker">OUR OBJECTIVES</span><h2 id="about-objectives-title">What the Institution works to achieve</h2><p>Our objectives reflect the professional mandate described in the supplied institutional brochure and the priorities expressed in the 2026 National Chairman’s inaugural address.</p></div><div className="aboutObjectiveCards">{objectiveItems.map((item,index)=>{ const [number,title,text] = Array.isArray(item) ? item : [item.number || String(index+1).padStart(2,"0"), item.title, item.text]; return (<article key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>); })}</div></section>
+
+      <section className="aboutHistorySection" aria-labelledby="about-history-title"><div className="aboutHistoryIntro"><span className="kicker">OUR HISTORY</span><h2 id="about-history-title">A specialist engineering community within the NSE</h2><p>From the formation of the Electrical Division in the mid-1980s to national technical programmes and the 2026 leadership transition, NI4E’s history is part of the wider development of professional engineering in Nigeria.</p><a href="https://nse.org.ng/re-disclaimer-the-nigerian-institute-of-electrical-and-electronic-engineers-is-not-the-same-as-the-nigerian-institution-of-electrical-and-electronics-engineers/" target="_blank" rel="noreferrer">Read the NSE’s 2022 clarification <ArrowRight size={15}/></a></div><div className="aboutHistoryTimeline">{historyItems.map((item,index)=><article key={`${item.year}-${index}`}><div className="aboutHistoryYear">{item.year}</div><div className="aboutHistoryMarker" aria-hidden="true"><span/></div><div className="aboutHistoryText"><h3>{item.title}</h3><p>{item.text}</p></div></article>)}</div></section>
+
+      <section className="aboutDisciplines" aria-labelledby="about-disciplines-title"><div className="aboutSectionHeading"><span className="kicker">PROFESSIONAL SCOPE</span><h2 id="about-disciplines-title">Disciplines that support essential systems</h2><p>NI4E’s professional scope covers established engineering disciplines and emerging technologies relevant to Nigeria’s infrastructure, industry and digital economy.</p></div><div className="aboutDisciplineGrid">{scopeItems.map((entry,index)=>{ const [Icon,title,text] = Array.isArray(entry) ? entry : [Zap, entry.title, entry.text]; return <article key={title || index}><span><Icon size={23}/></span><h3>{title}</h3><p>{text}</p></article>; })}</div></section>
+
+      <section className="aboutCouncilPreview"><div className="aboutSectionHeading"><span className="kicker">NATIONAL EXECUTIVE COUNCIL</span><h2>Leadership in service of the profession</h2><p>The National Executive Council provides national leadership and coordinates institutional priorities, technical activity and professional engagement.</p></div><div className="aboutCouncilPreviewGrid">{councilHighlights.map(([name,role,image])=><article key={name}><img src={image} alt={name} loading="lazy"/><div><h3>{name}</h3><p>{role}</p></div></article>)}</div><button className="darkbtn" onClick={() => setPage?.('leadership')}>View the leadership chart <ArrowRight size={16}/></button></section>
+
+      <section className="aboutCommitmentBand"><div><span className="kicker">OUR COMMITMENT</span><h2>Professional excellence. Ethical practice. National impact.</h2><p>The Institution’s leadership has emphasised stronger chapters, professional capacity building, youth engagement, collaboration with industry and government, and a renewed commitment to innovation and service.</p></div><div className="aboutCommitmentActions"><button className="darkbtn" onClick={() => setPage?.('events')}><BookOpen size={16}/> Explore events & learning</button><button className="textbtn" onClick={() => setPage?.('chapters')}><Users size={16}/> Discover chapters</button></div></section>
+
+      <section className="aboutRecognitionNote"><ShieldCheck size={22}/><div><h3>Institutional identity matters</h3><p>The NSE’s clarification dated 6 December 2022 distinguishes the Nigerian Institution of Electrical and Electronics Engineers from a separate organisation with a similar name. This website presents NI4E as the professional Division recognised by the NSE.</p></div></section>
+    </main>
   </>;
 }
